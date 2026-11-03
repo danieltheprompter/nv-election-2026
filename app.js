@@ -293,10 +293,11 @@
     else st = "<strong>Awaiting precinct results.</strong> " + esc(P && P.note ? P.note : "The Washoe County Registrar has not posted precinct-level results for this election yet.");
     $("precinctStatus").innerHTML = st;
     $("precinctSrc").innerHTML = ok ? "<a href='" + esc(P.src) + "'>" + esc(P.src.split("/").pop()) + "</a> (generated " + genText(P.gen) + ")" : "not posted yet";
+    var nz = ok ? Object.keys(GEO.precincts).filter(function (id) { var v = P.p[id]; return v && v[0] != null && v[1] != null && !v[2]; }).length : 0;
     var items = names.map(function (n, i) { return [col[i], person(n) + " leads"]; });
     $("precinctLegend").innerHTML = items.map(function (x) { return "<span><span class=sw aria-hidden=true style='background:" + x[0] + "'></span>" + esc(x[1]) + "</span>"; }).join("") +
       "<span><span class=sw aria-hidden=true style='background:#718096'></span>Tied</span>" +
-      "<span><span class=sw aria-hidden=true style='background:var(--nores);border:1px solid var(--line)'></span>" + (ok ? "No votes / masked" : "Awaiting precinct results") + "</span>" +
+      "<span><span class=sw aria-hidden=true style='background:var(--nores);border:1px solid var(--line)'></span>" + (ok ? "No votes cast" + (nz ? " (" + nz + " precincts)" : "") + (P.masked ? " / masked" : "") : "Awaiting precinct results") + "</span>" +
       (ok ? "<span class=note>Lighter shade = closer race</span>" : "");
     var h = "<svg viewBox='-4 -4 308 437' role=img aria-label='Map of Reno voting precincts" + (ok ? " colored by leader in the mayor race" : "; precinct results not yet available") + "'>";
     var rows = [];
@@ -306,7 +307,7 @@
         var v = P.p[id];
         if (!v) title = "Precinct " + id + " (Ward " + g.w + "): not in the Registrar's file";
         else if (v[0] == null || v[1] == null) title = "Precinct " + id + " (Ward " + g.w + "): masked by the Registrar for privacy";
-        else if (!v[2]) title = "Precinct " + id + " (Ward " + g.w + "): no votes recorded";
+        else if (!v[2]) title = "Precinct " + id + " (Ward " + g.w + "): no votes cast" + (v[4] != null ? " (" + num(v[4]) + " registered)" : "");
         else {
           var a = v[0], b = v[1], t = v[2];
           if (a === b) { fill = "#718096"; }
