@@ -136,6 +136,6 @@ tfoot td{font-weight:700;border-top:2px solid var(--line)}
 .days .pbar{margin:0;height:16px}
 .days .ed{font-weight:700;color:var(--ink)}
 .bgrid>*{min-width:0}
-.kv td:last-child{white-space:normal}
+@media (max-width:600px){.kv td:last-child{white-space:normal}}
 td button.cty{white-space:nowrap}
 #countyTable th{white-space:normal;vertical-align:bottom}
