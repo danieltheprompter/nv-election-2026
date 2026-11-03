@@ -97,7 +97,7 @@
     if (!D) { el.className = "status err"; el.innerHTML = "<span class=dot></span>Could not load the results data yet" + (lastErr ? " (" + esc(lastErr) + ")" : "") + ". Retrying every 60 s."; return; }
     var s = "<span class=dot></span>Unofficial results; last updated " + esc(D.u) + ", SOS release #" + esc(D.seq);
     if (D.g) s += " (SOS published " + esc(D.g) + ")";
-    s += ". <span style='font-weight:400'>Page checked for new data at " + esc(lastOkAt || "—") + (lastErr ? "; last check failed, retrying" : "") + ".</span>";
+    s += ". <span style='font-weight:400'>The tracker checks the SOS feed every 2 min; this page last checked for new data at " + esc(lastOkAt || "—") + (lastErr ? "; last check failed, retrying" : "") + ".</span>";
     el.className = "status " + (lastErr ? "err" : "ok"); el.innerHTML = s;
   }
 
