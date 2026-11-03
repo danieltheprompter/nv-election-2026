@@ -37,8 +37,12 @@ async def fetch_all(timeout_ms):
             await pg.goto(BASE, wait_until="networkidle", timeout=timeout_ms)
             out = {}
             for k, path in FILES.items():
-                res = await pg.evaluate("""async (u) => { const r = await fetch(u, {cache: 'no-store'});
-                    return [r.status, r.headers.get('last-modified'), await r.text()]; }""", BASE + path + "?t=" + str(int(dt.datetime.now().timestamp())))
+                for attempt in range(3):  # VIVID briefly 404s its files while republishing them
+                    res = await pg.evaluate("""async (u) => { const r = await fetch(u, {cache: 'no-store'});
+                        return [r.status, r.headers.get('last-modified'), await r.text()]; }""", BASE + path + "?t=" + str(int(dt.datetime.now().timestamp())))
+                    if res[0] == 200 or attempt == 2:
+                        break
+                    await pg.wait_for_timeout(15000)
                 if res[0] != 200:
                     raise RuntimeError(f"{path}: HTTP {res[0]}")
                 out[k] = (json.loads(res[2]), res[1])
