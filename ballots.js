@@ -43,11 +43,17 @@
   function stat(k, v, x, cls) { return "<div class='stat" + (cls ? " " + cls : "") + "'><span class=k>" + k + "</span><span class=v>" + v + "</span>" + (x ? "<span class=x>" + x + "</span>" : "") + "</div>"; }
 
   // one calm headline block: total received, party split + lead, then % of active voters and the method split
+  // "D +5,123 (+3.1 pts)" from official per-party counts
+  function leadCount(party) {
+    var t = s3(party); if (!t) return "no data"; var d = party[0] - party[1], m = d / t * 100;
+    if (d === 0) return "even";
+    return (d > 0 ? "D +" : "R +") + num(Math.abs(d)) + " (+" + Math.abs(m).toFixed(1) + " pts)";
+  }
   function hero(tot, party, reg, ret, ev, ed, big) {
     var t = s3(party), m = t ? (party[0] - party[1]) / t * 100 : null;
     return "<div class='hero" + (big ? " big" : "") + "'><p class=hv><strong>" + num(tot) + "</strong> ballots received</p>" +
-      "<p class=hp>" + ["D", "R", "Other"].map(function (n, i) { return "<span><span class=sw style='background:" + PC[i] + "'></span>" + n + " " + pct(party[i], t) + "</span>"; }).join(" · ") +
-      " · <strong>" + leadText(m) + "</strong></p>" +
+      "<ul class=hp>" + PN.map(function (n, i) { return "<li><span class=sw style='background:" + PC[i] + "'></span><span class=pn>" + n + "</span><strong>" + num(party[i]) + "</strong><span class=pp>" + pct(party[i], t) + "</span></li>"; }).join("") +
+      "</ul><p class=hl>Lead: <strong>" + leadCount(party) + "</strong></p>" +
       "<p class=hx>" + [pct(tot, reg) + " of active voters", "Mail " + num(ret), "Early " + num(ev), "Election Day " + num(ed)].map(function (x) { return "<span>" + x + "</span>"; }).join(" · ") + "</p></div>";
   }
   function renderSummary() {
@@ -138,7 +144,7 @@
     });
     $("map").innerHTML = h + "</svg>";
     var c = byCode(ui.county), f = c && cfig(c);
-    $("mapNote").innerHTML = c ? "<strong>" + esc(c.n) + ":</strong> " + num(f.tot) + " ballots received · " + leadText(margin(f)) + ". Tap another county to switch." : "";
+    $("mapNote").innerHTML = c ? "<strong>" + esc(c.n) + ":</strong> " + num(f.tot) + " ballots received · " + leadCount(f.party) + ". Tap another county to switch." : "";
     renderCountyDetail();
   }
   function renderCountyDetail() {
@@ -158,11 +164,11 @@
       "</tbody></table></div><p class=note>Outstanding = sent − undeliverable − returned − canceled (VIVID's formula). Canceled includes mail ballots of people who voted in person.</p></details>";
   }
 
-  var COLS = [["n", "County", 0], ["reg", "Active registered", 1], ["sent", "Mail sent", 1], ["ret", "Mail returned", 1], ["ev", "Early in person", 1], ["ed", "Election Day in person", 1], ["tot", "Total received", 1], ["p", "% of registered", 1], ["dem", "Dem % of received", 1], ["rep", "Rep % of received", 1], ["oth", "Other % of received", 1], ["lead", "Lead (D − R)", 1]];
+  var COLS = [["n", "County", 0], ["reg", "Active registered", 1], ["sent", "Mail sent", 1], ["ret", "Mail returned", 1], ["ev", "Early in person", 1], ["ed", "Election Day in person", 1], ["tot", "Total received", 1], ["p", "% of registered", 1], ["dem", "Democratic received", 1], ["rep", "Republican received", 1], ["oth", "Other received", 1], ["lead", "Lead (D − R)", 1]];
   function renderCountyTable() {
     var rows = B.counties.map(function (c) {
       var f = cfig(c); f.n = c.n; f.c = c.c; var t = s3(f.party);
-      f.dem = t ? f.party[0] / t : null; f.rep = t ? f.party[1] / t : null; f.oth = t ? f.party[2] / t : null; f.lead = margin(f); return f;
+      f.dem = f.party[0]; f.rep = f.party[1]; f.oth = f.party[2]; f.lead = f.party[0] - f.party[1]; return f;
     });
     rows.sort(function (a, b) {
       var x = a[ui.sort], y = b[ui.sort];
@@ -175,11 +181,11 @@
     rows.forEach(function (f) {
       h += "<tr" + (f.c === ui.county ? " class=sel" : "") + "><td><button type=button class=cty data-c='" + f.c + "'>" + esc(f.n) + "</button></td><td class=num>" + num(f.reg) + "</td><td class=num>" + num(f.sent) + "</td><td class=num>" + num(f.ret) +
         "</td><td class=num>" + num(f.ev) + "</td><td class=num>" + num(f.ed) + "</td><td class=num><strong>" + num(f.tot) + "</strong></td><td class=num>" + pct(f.tot, f.reg) +
-        "</td><td class=num>" + pct(f.party[0], s3(f.party)) + "</td><td class=num>" + pct(f.party[1], s3(f.party)) + "</td><td class=num>" + pct(f.party[2], s3(f.party)) + "</td><td class=num>" + leadText(f.lead) + "</td></tr>";
+        "</td>" + [0, 1, 2].map(function (i) { return "<td class=num>" + num(f.party[i]) + "<span class=cp>" + pct(f.party[i], s3(f.party)) + "</span></td>"; }).join("") + "<td class=num>" + leadCount(f.party).replace(" (", "<span class=cp>(") + "</span></td></tr>";
     });
     var T = rows.reduce(function (a, f) { return { reg: a.reg + f.reg, sent: a.sent + f.sent, ret: a.ret + f.ret, ev: a.ev + f.ev, ed: a.ed + f.ed, tot: a.tot + f.tot, party: add(a.party, f.party) }; }, { reg: 0, sent: 0, ret: 0, ev: 0, ed: 0, tot: 0, party: [0, 0, 0] });
     h += "</tbody><tfoot><tr><td>Nevada</td><td class=num>" + num(T.reg) + "</td><td class=num>" + num(T.sent) + "</td><td class=num>" + num(T.ret) + "</td><td class=num>" + num(T.ev) + "</td><td class=num>" + num(T.ed) +
-      "</td><td class=num>" + num(T.tot) + "</td><td class=num>" + pct(T.tot, T.reg) + "</td><td class=num>" + pct(T.party[0], T.tot) + "</td><td class=num>" + pct(T.party[1], T.tot) + "</td><td class=num>" + pct(T.party[2], T.tot) + "</td><td class=num>" + leadText(margin(T)) + "</td></tr></tfoot></table>";
+      "</td><td class=num>" + num(T.tot) + "</td><td class=num>" + pct(T.tot, T.reg) + "</td>" + [0, 1, 2].map(function (i) { return "<td class=num>" + num(T.party[i]) + "<span class=cp>" + pct(T.party[i], T.tot) + "</span></td>"; }).join("") + "<td class=num>" + leadCount(T.party).replace(" (", "<span class=cp>(") + "</span></td></tr></tfoot></table>";
     $("countyTable").innerHTML = h + "<p class=note>Party shares are of ballots received in that county, by the voter's party registration.</p>";
   }
 
