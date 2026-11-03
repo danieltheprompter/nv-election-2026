@@ -44,6 +44,21 @@
     }
     function panBy(dx, dy) { s.tx += dx; s.ty += dy; apply(); }
     s.reset = function () { s.s = 1; s.tx = 0; s.ty = 0; apply(); };
+    // hide context labels that would overlap a higher-priority label (ward labels > places > roads > parks > precinct numbers)
+    function declutter(g) {
+      if (!g.querySelector("text[data-p]")) return;
+      var items = [];
+      g.querySelectorAll("text").forEach(function (t) { if (t.style.display !== "none") items.push([+(t.dataset.p || 0), t]); });
+      items.sort(function (a, b) { return a[0] - b[0]; });
+      var rects = items.map(function (it) { return it[1].getBoundingClientRect(); }), kept = [];
+      items.forEach(function (it, i) {
+        var r = rects[i], pad = 1.5, hit = false;
+        if (it[0] > 0) for (var j = 0; j < kept.length && !hit; j++) {
+          var q = kept[j]; hit = r.left - pad < q.right && r.right + pad > q.left && r.top - pad < q.bottom && r.bottom + pad > q.top;
+        }
+        if (hit) it[1].style.display = "none"; else kept.push(r);
+      });
+    }
     function apply() {
       var sv = svg(); if (!sv) return;
       var g = sv.querySelector("g.zg");
@@ -61,10 +76,17 @@
       s.ty = clamp(s.ty, v[1] + v[3] - z * (v[1] + v[3]), v[1] - z * v[1]);
       if (z === 1) { s.tx = 0; s.ty = 0; }
       g.setAttribute("transform", "translate(" + s.tx.toFixed(3) + " " + s.ty.toFixed(3) + ") scale(" + z.toFixed(4) + ")");
+      var ppu = (sv.getBoundingClientRect().width || 300) / v[2] * z;   // screen px per map unit at this zoom
       g.querySelectorAll("text").forEach(function (t) {
         t.style.fontSize = (t.dataset.fs / z) + "px";
         if (+t.dataset.sw) t.style.strokeWidth = (t.dataset.sw / z) + "px";
+        // declutter: context labels appear only when zoomed in enough (data-minz), precinct numbers only when they fit (data-r)
+        var show = true;
+        if (t.dataset.minz) show = z >= +t.dataset.minz - 1e-6;
+        if (t.dataset.r) show = +t.dataset.r * ppu >= 3 + 2.6 * t.textContent.length;
+        t.style.display = show ? "" : "none";
       });
+      declutter(g);
       w.classList.toggle("zoomed", z > 1);
       ctl.querySelector(".zin").disabled = z >= s.max - 1e-6;
       ctl.querySelector(".zout").disabled = z <= 1;
@@ -184,6 +206,7 @@
     });
     // the app re-renders the map's SVG on each data refresh: re-apply the current zoom to the new SVG
     new MutationObserver(function () { apply(); }).observe(el, { childList: true });
+    window.addEventListener("resize", function () { apply(); });
     apply();
   }
   function init() { MAPS.forEach(function (m) { setup(m[0], m[1], m[2]); }); }

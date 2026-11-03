@@ -249,6 +249,31 @@
     $("glanceTable").innerHTML = h + "</tbody></table>";
   }
 
+
+  // ---------- map context layers (context.json: Washoe County GIS roads/water/parks, OSM place names) ----------
+  var CTX = null;
+  function ctxText(cls, t, x, y, fs, minz, extra) {
+    return "<text class='ctxl " + cls + "' style='font-size:" + fs + "px" + (minz > 1 ? ";display:none" : "") + "' data-p='" + ({ plab: 1, rlab: 2, pklab: 3 }[cls.split(" ")[0]] || 2) + "' data-minz='" + minz + "' x='" + x + "' y='" + y + "' text-anchor=middle dominant-baseline=central" + (extra || "") + ">" + esc(t) + "</text>";
+  }
+  function ctxLayers(kind, hasResults) {
+    if (!CTX) return { under: "", labels: "" };
+    var u = "<g class=ctx pointer-events=none aria-hidden=true>";
+    u += "<path class=cpark d='" + CTX.parks + "'" + (hasResults ? " fill='none'" : "") + "></path>";
+    u += "<path class=cwater d='" + CTX.water + "'></path>";
+    u += "<path class=ccreek d='" + CTX.creek + "' fill='none'></path>";
+    u += "<path class=criver d='" + CTX.river + "' fill='none'></path>";
+    u += "<path class=cart d='" + CTX.art + "' fill='none'></path>";
+    u += "<path class=cfw d='" + CTX.fw + "' fill='none'></path></g>";
+    var l = "<g class=ctxlab pointer-events=none aria-hidden=true>", lift = kind === "ward" ? 1 : 0;
+    if (kind === "precinct") Object.keys(CTX.pn).forEach(function (id) {
+      var q = CTX.pn[id]; l += "<text class='ctxl pnum' style='font-size:8.5px;display:none' data-p='4' data-r='" + q[2] + "' x='" + q[0] + "' y='" + q[1] + "' text-anchor=middle dominant-baseline=central>" + esc(id) + "</text>";
+    });
+    CTX.pk.forEach(function (q) { l += ctxText("pklab", q.t, q.x, q.y, 8, q.z + lift); });
+    CTX.rl.forEach(function (q) { l += ctxText("rlab " + q.c, q.t, q.x, q.y, q.c === "fw" ? 8.5 : 8, q.z + lift, " transform='rotate(" + q.a + " " + q.x + " " + q.y + ")'"); });
+    CTX.pl.forEach(function (q) { l += ctxText("plab", q.t, q.x, q.y, 9.5, Math.max(q.z, 1 + lift)); });
+    return { under: u, labels: l + "</g>" };
+  }
+
   function renderReno() {
     var reno = D.races.filter(function (r) { return r.s === "reno"; });
     var mayor = reno.filter(function (r) { return r.k === "renomayor"; })[0];
@@ -271,6 +296,7 @@
       }
       h += "<path d='" + g.d + "' fill='" + fill + "' fill-opacity='" + op.toFixed(2) + "' stroke='" + (rk ? "var(--ink)" : "var(--mut)") + "' stroke-width='" + (rk ? 1.5 : 0.8) + "'" + (rk ? "" : " stroke-dasharray='3 2'") + "><title>" + esc(title) + "</title></path>";
     });
+    var cw = ctxLayers("ward", true); h += cw.under + cw.labels;
     Object.keys(GEO.wards).forEach(function (w) { var g = GEO.wards[w]; h += "<text class=maplabel style='font-size:12px" + (WARD_RACE[w] ? ";font-weight:700" : "") + "' x='" + g.x + "' y='" + g.y + "' text-anchor=middle>Ward " + w + "</text>"; });
     $("wardMap").innerHTML = h + "</svg>";
   }
@@ -318,7 +344,9 @@
       }
       h += "<path class=pc d='" + g.d + "' fill='" + fill + "' fill-opacity='" + op.toFixed(2) + "' stroke='var(--card)' stroke-width='0.5' stroke-linejoin='round'><title>" + esc(title) + "</title></path>";
     });
+    var cx = ctxLayers("precinct", ok); h += cx.under;
     Object.keys(GEO.wards).forEach(function (w) { h += "<path d='" + GEO.wards[w].d + "' fill='none' stroke='var(--ink)' stroke-width='1.3' stroke-opacity='0.75' pointer-events='none'/>"; });
+    h += cx.labels;
     Object.keys(GEO.wards).forEach(function (w) { var g = GEO.wards[w]; h += "<text class=maplabel style='font-size:11px;font-weight:700' x='" + g.x + "' y='" + g.y + "' text-anchor=middle>Ward " + w + "</text>"; });
     $("precinctMap").innerHTML = h + "</svg>";
     if (!ok) { $("precinctTable").innerHTML = "<p class=meta>No precinct results yet.</p>"; return; }
@@ -400,6 +428,12 @@
       } else renderStatus();
     }).catch(function (e) { lastErr = e.message; renderStatus(); });
   }
+  // context layers load after the results maps and are drawn in when they arrive (optional; maps work without them)
+  setTimeout(function () {
+    fetch("context.json").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
+      CTX = c; if (GEO && D) renderReno(); if (GEO) renderPrecincts();
+    }).catch(function () {});
+  }, 300);
   fetch("geo.json").then(function (r) { return r.json(); }).then(function (g) {
     GEO = g; poll(); pollPrecincts(); setInterval(poll, POLL_MS); setInterval(pollPrecincts, POLL_MS); setInterval(tickAgo, 1000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); pollPrecincts(); } });

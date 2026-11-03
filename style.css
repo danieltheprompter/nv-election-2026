@@ -1,6 +1,6 @@
 /* Mobile-first. Colors: Okabe-Ito / PuOr based, chosen to stay distinguishable with common color-vision deficiencies. */
-:root{--bg:#f6f6f3;--card:#fff;--ink:#1a1a1a;--mut:#555;--line:#dcdcd6;--acc:#1f5fa8;--acc-ink:#fff;--nores:#e4e4df;--focus:#b35c00;--warn:#8a5a00}
-@media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1d1d20;--ink:#f0f0f0;--mut:#b8b8b8;--line:#3a3a40;--acc:#8ab8f0;--acc-ink:#0b1a2b;--nores:#34343a;--focus:#ffb454;--warn:#f0c060}}
+:root{--road:#8b8b86;--fw:#8a7b66;--water:#3d86d1;--park:#4d8f4d;--park-ink:#336b33;--bg:#f6f6f3;--card:#fff;--ink:#1a1a1a;--mut:#555;--line:#dcdcd6;--acc:#1f5fa8;--acc-ink:#fff;--nores:#e4e4df;--focus:#b35c00;--warn:#8a5a00}
+@media (prefers-color-scheme:dark){:root{--road:#8e8e96;--fw:#b0a38c;--water:#5ea6ee;--park:#6cbf6c;--park-ink:#9fdc9f;--bg:#121214;--card:#1d1d20;--ink:#f0f0f0;--mut:#b8b8b8;--line:#3a3a40;--acc:#8ab8f0;--acc-ink:#0b1a2b;--nores:#34343a;--focus:#ffb454;--warn:#f0c060}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -95,3 +95,20 @@ tr.lead td{font-weight:700}
 @media (prefers-reduced-motion:no-preference){.bar>i,.progress>i{transition:width .4s}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .racecards button{display:flex;flex-direction:column;justify-content:flex-start}
+
+/* map context layers (roads, water, parks, place names) */
+.ctx path{vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.ctx .cpark{fill:var(--park);fill-opacity:.22;stroke:var(--park);stroke-opacity:.75;stroke-width:.8px;stroke-dasharray:2 2}
+.ctx .cpark[fill=none]{fill:none}
+.ctx .cwater{fill:var(--water);fill-opacity:.55;stroke:none}
+.ctx .ccreek{stroke:var(--water);stroke-opacity:.45;stroke-width:.7px}
+.ctx .criver{stroke:var(--water);stroke-opacity:.85;stroke-width:2.2px}
+.ctx .cart{stroke:var(--road);stroke-opacity:.55;stroke-width:.9px}
+.ctx .cfw{stroke:var(--fw);stroke-opacity:.8;stroke-width:2.4px}
+.ctxl{pointer-events:none;paint-order:stroke;stroke:var(--card);stroke-width:2.2px;stroke-linejoin:round;stroke-opacity:.85}
+.ctxl.plab{fill:var(--mut);font-style:italic;font-weight:600;letter-spacing:.02em}
+.ctxl.rlab{fill:var(--mut);font-weight:500}
+.ctxl.rlab.fw{fill:var(--fw);font-weight:700;filter:brightness(.8)}
+.ctxl.pklab{fill:var(--park-ink);font-style:italic}
+.ctxl.pnum{fill:var(--ink);fill-opacity:.8;font-variant-numeric:tabular-nums;stroke-width:1.8px;stroke-opacity:.7}
+@media (prefers-color-scheme:dark){.ctxl.rlab.fw{filter:none}}
