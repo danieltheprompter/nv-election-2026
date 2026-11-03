@@ -3,80 +3,102 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nevada 2026 Election Results (unofficial tracker)</title>
-<meta name="description" content="Unofficial, independent tracker of Nevada's Nov 3, 2026 general election results, mirrored from the Nevada Secretary of State results feed. Not an official government site.">
+<title>Nevada 2026 Election Results — updates automatically (unofficial)</title>
+<meta name="description" content="Unofficial, independent tracker of Nevada's Nov 3, 2026 general election results, mirrored from the Nevada Secretary of State results feed. Updates automatically. Not an official government site.">
+<meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%232d5a8c%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%231f5fa8%22/%3E%3C/svg%3E">
 </head>
 <body>
+<a class="skip" href="#statewide">Skip to results</a>
 <header class="top">
   <div class="wrap">
-    <h1>Nevada 2026 Election Results <span class="sub">(unofficial tracker)</span></h1>
-    <p class="disclaimer">Independent, unofficial tracker. <strong>Not an official government website.</strong> Numbers are mirrored from the
-      <a href="https://silverstateelection.nv.gov/" rel="noopener">Nevada Secretary of State results feed</a>; for official results see the SOS and the
-      <a href="https://electionresults.washoecounty.gov/" rel="noopener">Washoe County Registrar of Voters</a>.</p>
+    <h1>Nevada 2026 Election Results <span class="h1sub">— updates automatically</span></h1>
+    <p class="disclaimer"><strong>Unofficial tracker — not an official government website.</strong> Numbers are copied automatically from the
+      <a href="https://silverstateelection.nv.gov/" rel="noopener">Nevada Secretary of State</a> results feed.</p>
     <p id="status" class="status" role="status" aria-live="polite">Loading results…</p>
-    <nav class="toc" aria-label="Sections">
-      <a href="#statewide">Statewide &amp; county map</a><a href="#glance">At a glance</a><a href="#reno">Reno</a><a href="#local">Sparks &amp; Washoe</a><a href="#turnout">Turnout</a><a href="#sources">Sources</a>
+    <nav class="toc" aria-label="Jump to section">
+      <a href="#statewide">Statewide</a><a href="#glance">All races</a><a href="#reno">Reno</a><a href="#local">Sparks &amp; Washoe</a><a href="#turnout">Turnout</a><a href="#sources">Sources</a>
     </nav>
   </div>
 </header>
 <main class="wrap">
-  <div id="banner"></div>
+  <div id="banner" aria-live="polite"></div>
 
-  <section id="statewide">
-    <h2>Race results by county</h2>
-    <div class="tabs" id="groupTabs" role="tablist"></div>
-    <div class="tabs small" id="raceTabs" role="tablist"></div>
-    <div id="raceHead"></div>
-    <div class="grid2">
-      <div class="card">
+  <details class="howto">
+    <summary>How to read this page</summary>
+    <ul>
+      <li><strong>Pick a race</strong> below. Statewide offices are first, then U.S. House, then Ballot Questions 6 and 7.</li>
+      <li><strong>Bars and percentages</strong> show each choice's share of the votes counted so far. The leader is shown in bold.</li>
+      <li><strong>The map</strong> colors each county by who is ahead there. A lighter shade means a closer margin; gray means no results yet. Tap or click a county for its numbers.</li>
+      <li><strong>“Counties reporting”</strong> is how many counties have sent results to the Secretary of State. It does not mean all their ballots are counted — Nevada keeps counting mail ballots for days.</li>
+      <li>This page checks for new numbers every minute on its own, so you never need to refresh. All times are Pacific Time (PT).</li>
+      <li>Everything here is <strong>unofficial</strong> until counties finish their canvass (Washoe: Nov 13, 2026) and the state certifies results. This page never estimates or projects winners.</li>
+    </ul>
+  </details>
+
+  <section id="statewide" aria-labelledby="h-statewide">
+    <h2 id="h-statewide">Statewide races, U.S. House and ballot questions</h2>
+    <div class="groups" id="groupTabs" role="group" aria-label="Race category"></div>
+    <div class="racecards" id="raceTabs" role="group" aria-label="Choose a race"></div>
+    <div class="card detail">
+      <div id="raceHead"></div>
+      <div class="grid2">
         <div id="raceTotals"></div>
-      </div>
-      <div class="card mapcard">
-        <div id="legend" class="legend"></div>
-        <div id="map"></div>
-        <p class="note" id="mapNote"></p>
+        <div class="mapcard">
+          <h4>Who is ahead in each county</h4>
+          <div id="legend" class="legend" aria-label="Map legend"></div>
+          <div id="map"></div>
+          <p class="note" id="mapNote"></p>
+        </div>
       </div>
     </div>
-    <div class="card"><h3 id="countyHead">Results by county</h3><div class="scroll" id="countyTable"></div></div>
+    <details class="card" id="countyDetails">
+      <summary><span id="countyHead">Results by county</span></summary>
+      <div class="scroll" id="countyTable" tabindex="0"></div>
+    </details>
   </section>
 
-  <section id="glance">
-    <h2>Statewide ballot at a glance</h2>
-    <div class="card scroll" id="glanceTable"></div>
+  <section id="glance" aria-labelledby="h-glance">
+    <h2 id="h-glance">All statewide races at a glance</h2>
+    <div class="card scroll" id="glanceTable" tabindex="0"></div>
   </section>
 
-  <section id="reno">
-    <h2>Reno</h2>
+  <section id="reno" aria-labelledby="h-reno">
+    <h2 id="h-reno">City of Reno</h2>
     <div id="renoMayor" class="card feature"></div>
     <div class="grid2" id="renoOther"></div>
-    <div class="card"><h3>Reno council wards on the ballot</h3><div id="wardMap"></div><p class="note">Wards 2 and 4 are on the 2026 ballot; shaded by leader once results post. Ward boundaries: Washoe County GIS.</p></div>
+    <div class="card">
+      <h3>Reno City Council wards on the 2026 ballot</h3>
+      <p class="meta">Only Wards 2 and 4 elect a council member this year. The mayor is elected citywide.</p>
+      <div id="wardLegend" class="legend" aria-label="Ward map legend"></div>
+      <div id="wardMap"></div>
+      <p class="note">Ward boundaries: Washoe County GIS.</p>
+    </div>
   </section>
 
-  <section id="local">
-    <h2>Sparks and Washoe County</h2>
+  <section id="local" aria-labelledby="h-local">
+    <h2 id="h-local">City of Sparks and Washoe County</h2>
     <div class="grid2" id="localRaces"></div>
   </section>
 
-  <section id="turnout">
-    <h2>Registration and turnout by county</h2>
-    <div class="card scroll" id="turnoutTable"></div>
+  <section id="turnout" aria-labelledby="h-turnout">
+    <h2 id="h-turnout">Registered voters and turnout by county</h2>
+    <div class="card scroll" id="turnoutTable" tabindex="0"></div>
   </section>
 
-  <section id="sources">
-    <h2>Sources and notes</h2>
+  <section id="sources" aria-labelledby="h-sources">
+    <h2 id="h-sources">Sources and notes</h2>
     <div class="card">
       <ul>
-        <li>Results and turnout: <a href="https://silverstateelection.nv.gov/">Nevada Secretary of State – Silver State Election Night Results</a> (official source).</li>
+        <li>Results and turnout: <a href="https://silverstateelection.nv.gov/">Nevada Secretary of State – Silver State Election Night Results</a> (the official source).</li>
         <li>Washoe County: <a href="https://electionresults.washoecounty.gov/">Washoe County Registrar of Voters – Election Results</a> and <a href="https://www.washoecounty.gov/voters/">Washoe County Registrar of Voters</a>.</li>
-        <li>Washoe registrar page status (as last checked by this tracker): <span id="washoeStatus">—</span></li>
+        <li>Washoe registrar results page, as last checked by this tracker: <span id="washoeStatus">—</span></li>
+        <li>Ballot question text is the official wording as published in the Secretary of State feed.</li>
         <li>County outlines: U.S. Census Bureau cartographic boundaries (us-atlas). Reno wards: Washoe County GIS OpenData.</li>
       </ul>
-      <p class="note">All results are <strong>unofficial</strong> until the county canvasses (Washoe: Nov 13, 2026) and state certification.
-        This page only shows numbers present in the SOS feed; it never estimates or projects. The SOS feed reports counties received/complete, not precincts or expected vote.
-        The data file is refreshed from the SOS feed about every 2 minutes and this page re-checks it about every 60 seconds. Nevada has no U.S. Senate race in 2026.
-        All times are Pacific Time (PT).</p>
+      <p class="note">The SOS feed reports how many counties have sent results, not precincts or expected vote, so this page cannot say what share of ballots is counted.
+        The data is refreshed from the SOS feed about every 2 minutes, and this page re-checks it every minute. Nevada has no U.S. Senate race in 2026.</p>
     </div>
   </section>
 </main>

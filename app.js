@@ -7,17 +7,28 @@
   // so it is only a fallback.
   var DATA_URLS = (window.NV_DATA_URLS || [
     "data/results.json",
-    "https://raw.githubusercontent.com/danieltheprompter/nv-election-2026/data/results.json"
+    "https://raw.githubusercontent.com/danieltheprompter/nv-election-2026/main/data/results.json"
   ]);
   var POLL_MS = 60000;
   var PT = "America/Los_Angeles";
-  var PALETTE = ["#805ad5", "#d69e2e", "#319795", "#d53f8c", "#4a5568", "#dd6b20", "#38a169", "#3182ce"];
-  var PARTY = { DEM: "#2b6cb0", REP: "#c53030" };
-  var GROUPS = [["statewide", "Statewide offices"], ["house", "U.S. House"], ["question", "Ballot questions"]];
+  // Color-blind-friendly (Okabe-Ito based). Candidates are never identified by color alone: names are always shown.
+  var PALETTE = ["#e69f00", "#009e73", "#cc79a7", "#56b4e9", "#8c6d1f", "#5d5d5d", "#d55e00", "#0072b2"];
+  var PARTY = { DEM: "#1f5fa8", REP: "#c8372d" };
+  var PARTY_NAME = { DEM: "Democratic", REP: "Republican", IAP: "Independent American", LPN: "Libertarian", NPP: "No political party", NP: "Nonpartisan" };
+  var YES = "#5e3c99", NO = "#e08214", NONE_OF = "#9a9a9a";
+  var GROUPS = [["statewide", "Statewide offices"], ["house", "U.S. House"], ["question", "Questions 6 & 7"]];
+  // Short plain-language descriptions of offices/districts (no numbers). Ballot questions use the official text from the feed.
+  var DESC = {
+    gov: "Leads the state's executive branch", ltgov: "Presides over the state Senate; next in line after the governor",
+    ag: "The state's top lawyer and law-enforcement officer", sos: "Oversees elections and business filings",
+    treas: "Manages the state's money and investments", ctrl: "The state's chief accountant; pays the bills",
+    nv1: "Central Las Vegas area", nv2: "Northern Nevada, including Reno and Sparks", nv3: "Southern Las Vegas Valley, including Henderson",
+    nv4: "North Las Vegas and central Nevada"
+  };
   var WARD_RACE = { "2": "renow2", "4": "renow4" };
   var SMALL = { "01": 1, "04": 1, "15": 1 };
 
-  var D = null, GEO = null, lastText = null, lastOkAt = null, lastErr = null;
+  var D = null, GEO = null, lastText = null, lastOkTs = null, lastErr = null;
   var ui = { group: "statewide", race: "gov", county: "16" };
 
   function $(id) { return document.getElementById(id); }
@@ -29,6 +40,9 @@
     var p = l.split(", "); if (p.length < 2) return l;
     return p[p.length - 1] + " " + p[0] + (p.length > 2 ? " " + p.slice(1, -1).join(" ") : "");
   }
+  function partyName(p) { return p ? (PARTY_NAME[p] || p) : ""; }
+  function shortQ(q) { q = String(q || ""); return q.length > 90 ? q.slice(0, q.lastIndexOf(" ", 86)) + "…" : q; }
+  function qBlock(r) { return r.q ? "<div class=q><strong>Official ballot question:</strong> " + esc(r.q) + "</div>" : ""; }
   function nowPT() { return new Date().toLocaleTimeString("en-US", { timeZone: PT, hour: "numeric", minute: "2-digit", second: "2-digit" }) + " PT"; }
   function hasVotes(r) { return !!r.t && r.t > 0; }
   function countyName(code) { for (var i = 0; i < D.counties.length; i++) if (D.counties[i][0] === code) return D.counties[i][1]; return code; }
@@ -38,9 +52,9 @@
     var out = [], k = 0;
     r.c.forEach(function (c) {
       var lab = c[0], party = c[1];
-      if (lab === "Yes") out.push("#2f855a");
-      else if (lab === "No") out.push("#c05621");
-      else if (lab === "None of These Candidates") out.push("#a0aec0");
+      if (lab === "Yes") out.push(YES);
+      else if (lab === "No") out.push(NO);
+      else if (lab === "None of These Candidates") out.push(NONE_OF);
       else if (PARTY[party]) out.push(PARTY[party]);
       else out.push(PALETTE[k++ % PALETTE.length]);
     });
@@ -66,74 +80,104 @@
     if (votes) idx.sort(function (a, b) { return (r.c[b][2] || 0) - (r.c[a][2] || 0); });
     var showParty = r.c.some(function (c) { return c[1]; });
     var lead = votes ? leadOf(r.c.map(function (c) { return c[2]; })) : null;
-    var h = "<table><thead><tr><th>" + (r.s === "question" || /Question/.test(r.l) ? "Choice" : "Candidate") + "</th>" + (showParty ? "<th>Party</th>" : "");
+    var h = "<table><caption class=sr>" + esc(r.n || r.l) + "</caption><thead><tr><th scope=col>" + (r.s === "question" || /Question/.test(r.l) ? "Choice" : "Candidate") + "</th>";
     if (votes) h += "<th class=num>Votes</th><th class=num>Share</th>";
     h += "</tr></thead><tbody>";
     idx.forEach(function (i, rank) {
       var c = r.c[i];
       var isLead = lead && !lead.tie && i === lead.i && r.vf === 1;
-      h += "<tr" + (isLead ? " class=lead" : "") + "><td><span class=sw style='background:" + col[i] + "'></span>" + esc(person(c[0]));
-      if (votes) h += "<div class=bar><i style='width:" + (r.t ? (100 * (c[2] || 0) / r.t) : 0).toFixed(2) + "%;background:" + col[i] + "'></i></div>";
-      h += "</td>" + (showParty ? "<td>" + esc(c[1] || "") + "</td>" : "");
+      h += "<tr" + (isLead ? " class=lead" : "") + "><td><span class=sw aria-hidden=true style='background:" + col[i] + "'></span>" + esc(person(c[0])) + (isLead ? " <span class=pill>Leading</span>" : "");
+      if (showParty && c[1]) h += "<span class=party>" + esc(partyName(c[1])) + "</span>";
+      if (votes) h += "<div class=bar aria-hidden=true><i style='width:" + (r.t ? (100 * (c[2] || 0) / r.t) : 0).toFixed(2) + "%;background:" + col[i] + "'></i></div>";
+      h += "</td>";
       if (votes) h += "<td class=num>" + num(c[2]) + "</td><td class=num>" + pct(c[2], r.t) + "</td>";
       h += "</tr>";
     });
     h += "</tbody>";
-    if (votes) h += "<tfoot><tr><td colspan=" + (showParty ? 2 : 1) + ">Total votes</td><td class=num>" + num(r.t) + "</td><td></td></tr></tfoot>";
+    if (votes) h += "<tfoot><tr><td>Total votes</td><td class=num>" + num(r.t) + "</td><td></td></tr></tfoot>";
     h += "</table>";
     var meta = votes ? reportingText(r) + (lead && lead.tie ? " · tied" : "")
-      : (D.posted ? "No votes reported in this race yet · " + reportingText(r) : "Awaiting results");
+      : (D.posted ? "No votes reported in this race yet · " + reportingText(r) : "No results yet — votes will appear after polls close at 7 PM PT");
     if (r.vf > 1) meta += " · vote for " + r.vf;
     return (opts.noMeta ? "" : "<p class=meta>" + esc(meta) + "</p>") + h;
   }
 
   function raceCard(r, cls) {
     var name = r.n && r.n !== r.l ? "<span class=pill>" + esc(r.n) + "</span>" : "";
-    return "<div class='card " + (cls || "") + "'><h3>" + esc(r.l) + name + "</h3>" + (r.q ? "<p class=q>" + esc(r.q) + "</p>" : "") + raceTable(r) + "</div>";
+    return "<div class='card " + (cls || "") + "'><h3>" + esc(r.l) + name + "</h3>" + qBlock(r) + raceTable(r) + "</div>";
   }
 
+  function agoText() {
+    if (!lastOkTs) return "";
+    var sec = Math.max(0, Math.round((Date.now() - lastOkTs) / 1000));
+    return sec < 60 ? sec + " sec ago" : Math.floor(sec / 60) + " min ago";
+  }
   function renderStatus() {
     var el = $("status");
-    if (!D) { el.className = "status err"; el.innerHTML = "<span class=dot></span>Could not load the results data yet" + (lastErr ? " (" + esc(lastErr) + ")" : "") + ". Retrying every 60 s."; return; }
-    var s = "<span class=dot></span>Unofficial results; last updated " + esc(D.u) + ", SOS release #" + esc(D.seq);
-    if (D.g) s += " (SOS published " + esc(D.g) + ")";
-    s += ". <span style='font-weight:400'>The tracker checks the SOS feed every 2 min; this page last checked for new data at " + esc(lastOkAt || "—") + (lastErr ? "; last check failed, retrying" : "") + ".</span>";
+    if (!D) { el.className = "status err"; el.innerHTML = "<span class=dot aria-hidden=true></span>Could not load the results yet" + (lastErr ? " (" + esc(lastErr) + ")" : "") + ". Trying again every minute."; return; }
+    var s = "<span class=dot aria-hidden=true></span><strong>Unofficial.</strong> Last updated " + esc(D.u) + ", SOS release #" + esc(D.seq) + ". " +
+      "<span class=ago>Last checked <span id=ago>" + esc(agoText()) + "</span>" + (lastErr ? " (latest check failed; retrying)" : "") + ".</span>";
     el.className = "status " + (lastErr ? "err" : "ok"); el.innerHTML = s;
   }
+  function tickAgo() { var a = $("ago"); if (a) a.textContent = agoText(); }
 
+  function countiesReporting() {
+    var g = D.races.filter(function (r) { return r.k === "gov"; })[0] || D.races.filter(function (r) { return r.ex === 17; })[0];
+    return g ? { rc: g.rc, cp: g.cp, ex: g.ex } : null;
+  }
   function renderBanner() {
     var b = $("banner");
     if (!D.posted) {
-      b.innerHTML = "<div class='banner pre'><strong>No results posted yet; polls close 7 PM PT.</strong><br>" +
-        "The Nevada Secretary of State has not published any vote counts (latest feed: release #" + esc(D.seq) + ", published " + esc(D.g || "—") +
-        "). Candidates are listed below; vote totals will appear here automatically once the SOS posts them, usually after all Nevada polling places close. No need to reload.</div>";
+      b.innerHTML = "<div class='banner pre'><span class=big>Polls close at 7 PM PT.</span>Results will appear here automatically — no need to refresh." +
+        "<p class=meta style='margin:8px 0 0'>The Nevada Secretary of State has not posted any vote counts yet (latest feed: release #" + esc(D.seq) + ", published " + esc(D.g || "—") + "). Candidates are listed below.</p></div>";
     } else {
-      b.innerHTML = "<div class='banner live'><strong>Unofficial results — counting in progress.</strong><br>Counts change as counties report more ballots. " +
-        "Results are unofficial until canvass (Washoe: Nov 13, 2026).</div>";
+      var c = countiesReporting();
+      var w = c && c.ex ? (100 * c.rc / c.ex).toFixed(1) : 0;
+      b.innerHTML = "<div class='banner live'><span class=big>" + (c ? esc(c.rc) + " of " + esc(c.ex) + " counties reporting" : "Counting in progress") + "</span>" +
+        (c ? "<div class=progress role=img aria-label='" + esc(c.rc) + " of " + esc(c.ex) + " counties reporting'><i style='width:" + w + "%'></i></div>" : "") +
+        "Unofficial results — counts change as counties count more ballots. This page updates by itself; no need to refresh." +
+        (c && c.cp ? " " + esc(c.cp) + " of " + esc(c.ex) + " counties marked complete." : "") + "</div>";
     }
   }
 
+  function raceStatusLine(r) {
+    if (!hasVotes(r)) return D.posted ? "No votes reported yet" : "Awaiting results";
+    var L = leadOf(r.c.map(function (c) { return c[2]; }));
+    if (!L) return "Awaiting results";
+    return (L.tie ? "Tied" : person(r.c[L.i][0]) + " leads, " + pct(r.c[L.i][2], r.t)) + " · " + r.rc + "/" + r.ex + " counties";
+  }
   function renderTabs() {
     var g = $("groupTabs");
-    g.innerHTML = GROUPS.map(function (x) { return "<button role=tab data-g='" + x[0] + "' aria-selected=" + (ui.group === x[0]) + ">" + x[1] + "</button>"; }).join("");
+    g.innerHTML = GROUPS.map(function (x) { return "<button type=button data-g='" + x[0] + "' aria-pressed=" + (ui.group === x[0]) + ">" + x[1] + "</button>"; }).join("");
     var races = D.races.filter(function (r) { return r.s === ui.group; });
     if (!races.some(function (r) { return r.k === ui.race; }) && races.length) ui.race = races[0].k;
-    $("raceTabs").innerHTML = races.map(function (r) { return "<button role=tab data-r='" + r.k + "' aria-selected=" + (ui.race === r.k) + ">" + esc(r.l) + "</button>"; }).join("");
+    $("raceTabs").innerHTML = races.map(function (r) {
+      var d = r.q ? shortQ(r.q) : (DESC[r.k] || r.n || "");
+      var t = r.s === "house" ? "U.S. House " + r.l.replace("NV-", "District ") : (r.n && r.s === "statewide" ? r.n : r.l);
+      return "<button type=button data-r='" + r.k + "' aria-pressed=" + (ui.race === r.k) + "><span class=t>" + esc(t) + "</span>" +
+        (d ? "<span class=d>" + esc(d) + "</span>" : "") + "<span class=s>" + esc(raceStatusLine(r)) + "</span></button>";
+    }).join("");
   }
 
   function currentRace() { for (var i = 0; i < D.races.length; i++) if (D.races[i].k === ui.race) return D.races[i]; return null; }
 
   function renderRace() {
     var r = currentRace(); if (!r) return;
-    $("raceHead").innerHTML = "<h3>" + esc(r.n || r.l) + "</h3>" + (r.q ? "<p class=q>" + esc(r.q) + "</p>" : "");
-    $("raceTotals").innerHTML = "<h3>Statewide / district totals</h3>" + raceTable(r);
+    var title = r.s === "house" ? "U.S. House, " + r.l.replace("NV-", "District ") : (r.n || r.l);
+    $("raceHead").innerHTML = "<h3>" + esc(title) + "</h3>" + (DESC[r.k] ? "<p class=meta>" + esc(DESC[r.k]) + "</p>" : "") + qBlock(r);
+    $("raceTotals").innerHTML = "<h4>" + (r.ex === 17 ? "Statewide totals" : "District totals (" + r.ex + (r.ex === 1 ? " county" : " counties") + ")") + "</h4>" + raceTable(r);
     var col = colors(r);
-    $("legend").innerHTML = r.c.map(function (c, i) { return "<span><span class=sw style='background:" + col[i] + "'></span>" + esc(person(c[0])) + "</span>"; }).join("") +
-      "<span><span class=sw style='background:var(--nores);border:1px solid var(--line)'></span>Awaiting results</span><span><span class=sw style='background:var(--bg);border:1px dashed var(--line)'></span>Not in this contest</span>";
+    $("legend").innerHTML = legendHTML(r.c.map(function (c, i) { return [col[i], person(c[0])]; }), "Not in this contest");
     renderMap(r, col);
     renderCountyTable(r);
   }
 
+  function legendHTML(items, outsideLabel) {
+    return items.map(function (x) { return "<span><span class=sw aria-hidden=true style='background:" + x[0] + "'></span>" + esc(x[1]) + "</span>"; }).join("") +
+      "<span><span class=sw aria-hidden=true style='background:var(--nores);border:1px solid var(--line)'></span>Awaiting results</span>" +
+      "<span><span class=sw aria-hidden=true style='background:var(--bg);border:1px dashed var(--mut)'></span>" + esc(outsideLabel) + "</span>" +
+      (D.posted ? "<span class=note>Lighter shade = closer race</span>" : "");
+  }
   function renderMap(r, col) {
     var bc = {}; (r.bc || []).forEach(function (row) { bc[row[0]] = row; });
     var h = "<svg viewBox='-4 -4 308 461' role=img aria-label='Map of Nevada counties colored by leader in " + esc(r.l) + "'>";
@@ -162,11 +206,11 @@
       note = "<strong>" + esc(countyName(ui.county)) + ":</strong> " + (L ? (L.tie ? "tied" : esc(person(r.c[L.i][0])) + " leads with " + pct(sel[1][L.i], L.total) + " of " + num(L.total) + " votes")
         : (sel[2] === "M" ? "results masked by SOS" : "awaiting results")) + ". Tap another county to switch.";
     }
-    $("mapNote").innerHTML = note + (D.posted ? " Shade intensity reflects margin." : "");
+    $("mapNote").innerHTML = note;
   }
 
   function renderCountyTable(r) {
-    $("countyHead").textContent = (r.n || r.l) + " — results by county";
+    $("countyHead").textContent = "Show results by county (" + (r.bc || []).length + (r.bc && r.bc.length === 1 ? " county" : " counties") + ")";
     var rows = r.bc || [], col = colors(r), anyVotes = rows.some(function (x) { return x[1] && x[1].some(function (v) { return v; }); });
     var h = "<table><thead><tr><th>County</th>";
     if (anyVotes) r.c.forEach(function (c, i) { h += "<th class=num><span class=sw style='background:" + col[i] + "'></span>" + esc(person(c[0])) + "</th>"; });
@@ -188,10 +232,10 @@
 
   function renderGlance() {
     var rs = D.races.filter(function (r) { return r.s === "statewide" || r.s === "house" || r.s === "question"; });
-    var h = "<table><thead><tr><th>Race</th>" + (D.posted ? "<th>Leader</th><th class=num>Share</th><th class=num>Votes</th><th>Reporting</th>" : "<th>On the ballot</th>") + "</tr></thead><tbody>";
+    var h = "<table><thead><tr><th scope=col>Race</th>" + (D.posted ? "<th scope=col>Leader</th><th scope=col class=num>Share</th><th scope=col class=num>Votes</th><th scope=col>Reporting</th>" : "<th scope=col>On the ballot</th>") + "</tr></thead><tbody>";
     rs.forEach(function (r) {
       h += "<tr><td><a href='#statewide' data-jump='" + r.k + "'>" + esc(r.l) + "</a></td>";
-      if (!D.posted) h += "<td>" + esc(r.c.filter(function (c) { return c[0] !== "None of These Candidates"; }).map(function (c) { return person(c[0]) + (c[1] ? " (" + c[1] + ")" : ""); }).join(", ")) + "</td>";
+      if (!D.posted) h += "<td>" + esc(r.c.filter(function (c) { return c[0] !== "None of These Candidates"; }).map(function (c) { return person(c[0]) + (c[1] ? " (" + partyName(c[1]) + ")" : ""); }).join(", ")) + "</td>";
       else {
         var L = hasVotes(r) ? leadOf(r.c.map(function (c) { return c[2]; })) : null;
         h += "<td>" + (L ? (L.tie ? "Tied" : esc(person(r.c[L.i][0]))) : "—") + "</td><td class=num>" + (L && !L.tie ? pct(r.c[L.i][2], r.t) : "—") + "</td><td class=num>" + num(r.t) + "</td><td>" + r.rc + "/" + r.ex + " counties</td>";
@@ -204,21 +248,26 @@
   function renderReno() {
     var reno = D.races.filter(function (r) { return r.s === "reno"; });
     var mayor = reno.filter(function (r) { return r.k === "renomayor"; })[0];
-    $("renoMayor").innerHTML = mayor ? "<h3>Reno Mayor <span class=pill>Citywide</span></h3>" + raceTable(mayor) : "<p class=meta>Reno mayor's race not found in the SOS feed.</p>";
+    $("renoMayor").innerHTML = mayor ? "<h3>Reno Mayor <span class=pill>Citywide</span></h3><p class=meta>Nonpartisan race; every Reno voter can vote.</p>" + raceTable(mayor) : "<p class=meta>Reno mayor's race not found in the SOS feed.</p>";
     $("renoOther").innerHTML = reno.filter(function (r) { return r.k !== "renomayor"; }).map(function (r) { return raceCard(r); }).join("");
     // ward map
-    var h = "<svg viewBox='-4 -4 308 437' role=img aria-label='Map of Reno city council wards'>";
+    var h = "<svg viewBox='-4 -4 308 437' role=img aria-label='Map of Reno city council wards; Wards 2 and 4 have races in 2026'>", items = [];
+    Object.keys(WARD_RACE).forEach(function (w) {
+      var r = D.races.filter(function (x) { return x.k === WARD_RACE[w]; })[0]; if (!r) return;
+      var col = colors(r); r.c.forEach(function (c, i) { items.push([col[i], "Ward " + w + ": " + person(c[0])]); });
+    });
+    $("wardLegend").innerHTML = legendHTML(items, "No council race this year");
     Object.keys(GEO.wards).forEach(function (w) {
-      var g = GEO.wards[w], rk = WARD_RACE[w], fill = "var(--bg)", op = 1, title = "Ward " + w + ": no council race in 2026";
+      var g = GEO.wards[w], rk = WARD_RACE[w], fill = "var(--bg)", op = 1, title = "Ward " + w + ": no council race this year";
       if (rk) {
         var r = D.races.filter(function (x) { return x.k === rk; })[0];
         var L = r ? leadOf(r.c.map(function (c) { return c[2]; })) : null;
         if (L && !L.tie) { fill = colors(r)[L.i]; op = opacity(L.margin); title = "Ward " + w + ": " + person(r.c[L.i][0]) + " leads (" + pct(r.c[L.i][2], L.total) + ")"; }
         else { fill = "var(--nores)"; title = "Ward " + w + ": " + (L ? "tied" : "awaiting results"); }
       }
-      h += "<path d='" + g.d + "' fill='" + fill + "' fill-opacity='" + op.toFixed(2) + "' stroke='" + (rk ? "var(--acc)" : "var(--line)") + "' stroke-width='" + (rk ? 1.5 : 1) + "'><title>" + esc(title) + "</title></path>";
+      h += "<path d='" + g.d + "' fill='" + fill + "' fill-opacity='" + op.toFixed(2) + "' stroke='" + (rk ? "var(--ink)" : "var(--mut)") + "' stroke-width='" + (rk ? 1.5 : 0.8) + "'" + (rk ? "" : " stroke-dasharray='3 2'") + "><title>" + esc(title) + "</title></path>";
     });
-    Object.keys(GEO.wards).forEach(function (w) { var g = GEO.wards[w]; h += "<text class=maplabel style='font-size:11px' x='" + g.x + "' y='" + g.y + "' text-anchor=middle>Ward " + w + "</text>"; });
+    Object.keys(GEO.wards).forEach(function (w) { var g = GEO.wards[w]; h += "<text class=maplabel style='font-size:12px" + (WARD_RACE[w] ? ";font-weight:700" : "") + "' x='" + g.x + "' y='" + g.y + "' text-anchor=middle>Ward " + w + "</text>"; });
     $("wardMap").innerHTML = h + "</svg>";
   }
 
@@ -230,13 +279,13 @@
   function renderTurnout() {
     var rows = D.counties.slice().sort(function (a, b) { return (b[2] || 0) - (a[2] || 0); });
     var reg = 0, to = 0, anyTo = false;
-    var h = "<table><thead><tr><th>County</th><th class=num>Active registered voters</th><th class=num>Ballots cast</th><th class=num>Turnout</th></tr></thead><tbody>";
+    var h = "<table><thead><tr><th scope=col>County</th><th scope=col class=num>Active registered voters</th><th scope=col class=num>Ballots cast</th><th scope=col class=num>Turnout</th></tr></thead><tbody>";
     rows.forEach(function (c) {
       reg += c[2] || 0; if (c[3] != null) { to += c[3]; anyTo = true; }
       h += "<tr" + (c[0] === "16" ? " class=lead" : "") + "><td>" + esc(c[1]) + "</td><td class=num>" + num(c[2]) + "</td><td class=num>" + (c[3] == null ? "Not reported" : num(c[3])) + "</td><td class=num>" + (c[3] != null && c[2] ? pct(c[3], c[2]) : "—") + "</td></tr>";
     });
     h += "</tbody><tfoot><tr><td>Nevada (sum of counties)</td><td class=num>" + num(reg) + "</td><td class=num>" + (anyTo ? num(to) : "Not reported") + "</td><td class=num>" + (anyTo && rows.every(function (c) { return c[3] != null; }) ? pct(to, reg) : "—") + "</td></tr></tfoot></table>";
-    $("turnoutTable").innerHTML = "<p class=meta>From the SOS turnout file. Ballots cast are shown only once the SOS reports them.</p>" + h;
+    $("turnoutTable").innerHTML = "<p class=meta>From the Secretary of State turnout file, largest counties first (Washoe highlighted). Ballots cast appear only once the SOS reports them.</p>" + h;
   }
 
   function renderAll() {
@@ -252,6 +301,7 @@
     else if (t.dataset.r) { ui.race = t.dataset.r; renderTabs(); renderRace(); }
     else if (t.dataset.c) { ui.county = t.dataset.c; renderRace(); }
     else if (t.dataset.jump) { var r = D.races.filter(function (x) { return x.k === t.dataset.jump; })[0]; if (r) { ui.group = r.s; ui.race = r.k; renderTabs(); renderRace(); } }
+    if (t.dataset.c || t.dataset.r || t.dataset.g) { var b = document.querySelector("[data-" + (t.dataset.g ? "g='" + t.dataset.g : t.dataset.r ? "r='" + t.dataset.r : "c='" + t.dataset.c) + "']"); if (b && b.focus && !t.dataset.c) b.focus(); }
   });
 
   // ---------- polling ----------
@@ -265,7 +315,7 @@
   }
   function poll() {
     return fetchText(0).then(function (txt) {
-      lastErr = null; lastOkAt = nowPT();
+      lastErr = null; lastOkTs = Date.now();
       if (txt !== lastText) {
         var nd = JSON.parse(txt);
         // never go backwards to an older SOS release (e.g. a stale cached copy)
@@ -275,7 +325,7 @@
     }).catch(function (e) { lastErr = e.message; renderStatus(); });
   }
   fetch("geo.json").then(function (r) { return r.json(); }).then(function (g) {
-    GEO = g; poll(); setInterval(poll, POLL_MS);
+    GEO = g; poll(); setInterval(poll, POLL_MS); setInterval(tickAgo, 1000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
   }).catch(function (e) { lastErr = "map geometry: " + e.message; renderStatus(); });
   window.__nvPoll = poll; // for testing
