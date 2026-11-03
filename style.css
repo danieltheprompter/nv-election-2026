@@ -139,3 +139,15 @@ tfoot td{font-weight:700;border-top:2px solid var(--line)}
 @media (max-width:600px){.kv td:last-child{white-space:normal}}
 td button.cty{white-space:nowrap}
 #countyTable th{white-space:normal;vertical-align:bottom}
+.hero{margin:6px 0 10px}
+.hero p{margin:0 0 4px}
+.hero .hv{font-size:1.15rem;color:var(--mut)}
+.hero .hv strong{display:block;font-size:2rem;line-height:1.15;color:var(--ink,inherit);font-variant-numeric:tabular-nums}
+.hero.big{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--acc);border-radius:12px;padding:14px 16px;margin:0 0 14px}
+.hero.big .hv strong{font-size:2.4rem}
+.hero .hp{font-size:1rem}
+.hero .hp>span{white-space:nowrap}
+.hero .hx{font-size:.88rem;color:var(--mut)}
+details.more{margin:8px 0 16px}
+details.more>summary{cursor:pointer;font-weight:600;padding:6px 0;color:var(--acc)}
+.hero .hp strong,.hero .hx>span{white-space:nowrap}
