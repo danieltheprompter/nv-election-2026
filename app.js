@@ -28,7 +28,11 @@
   var WARD_RACE = { "2": "renow2", "4": "renow4" };
   var SMALL = { "01": 1, "04": 1, "15": 1 };
 
-  var D = null, GEO = null, lastText = null, lastOkTs = null, lastErr = null;
+  var P_URLS = (window.NV_PRECINCT_URLS || [
+    "data/reno_precincts.json",
+    "https://raw.githubusercontent.com/danieltheprompter/nv-election-2026/main/data/reno_precincts.json"
+  ]);
+  var D = null, GEO = null, lastText = null, lastOkTs = null, lastErr = null, P = null, lastPText = null;
   var ui = { group: "statewide", race: "gov", county: "16" };
 
   function $(id) { return document.getElementById(id); }
@@ -271,6 +275,77 @@
     $("wardMap").innerHTML = h + "</svg>";
   }
 
+  // ---------- Reno mayor by precinct (Washoe Registrar SOVC; see scripts/reno_precincts.py) ----------
+  function genText(g) { // SOVC timestamps are Washoe local time (PT), e.g. 2026-11-04T00:45:04
+    var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(g || ""); if (!m) return esc(g || "unknown time");
+    var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2] - 1], h = +m[4];
+    return mon + " " + (+m[3]) + ", " + ((h % 12) || 12) + ":" + m[5] + " " + (h < 12 ? "AM" : "PM") + " PT";
+  }
+  function renderPrecincts() {
+    if (!GEO || !GEO.precincts || !$("precinctMap")) return;
+    var mayor = D ? D.races.filter(function (r) { return r.k === "renomayor"; })[0] : null;
+    var names = ["Marshall, Kate", "Taylor, Kathleen"], col = ["#e69f00", "#009e73"];
+    if (mayor) { var mc = colors(mayor); names.forEach(function (n, i) { mayor.c.forEach(function (c, j) { if (c[0] === n) col[i] = mc[j]; }); }); }
+    var ok = P && P.status === "ok" && P.p && P.cands && P.cands[0] === names[0] && P.cands[1] === names[1];
+    var st;
+    if (ok) st = "From the Washoe County Registrar's " + (P.official ? "<strong>official</strong>" : "<strong>unofficial</strong>") + " Statement of Votes Cast, generated " + genText(P.gen) +
+      ". These are the spreadsheet's counts, which can trail the city-wide totals above." + (P.masked ? " Some cells are masked by the Registrar to protect voter privacy." : "");
+    else st = "<strong>Awaiting precinct results.</strong> " + esc(P && P.note ? P.note : "The Washoe County Registrar has not posted precinct-level results for this election yet.");
+    $("precinctStatus").innerHTML = st;
+    $("precinctSrc").innerHTML = ok ? "<a href='" + esc(P.src) + "'>" + esc(P.src.split("/").pop()) + "</a> (generated " + genText(P.gen) + ")" : "not posted yet";
+    var items = names.map(function (n, i) { return [col[i], person(n) + " leads"]; });
+    $("precinctLegend").innerHTML = items.map(function (x) { return "<span><span class=sw aria-hidden=true style='background:" + x[0] + "'></span>" + esc(x[1]) + "</span>"; }).join("") +
+      "<span><span class=sw aria-hidden=true style='background:#718096'></span>Tied</span>" +
+      "<span><span class=sw aria-hidden=true style='background:var(--nores);border:1px solid var(--line)'></span>" + (ok ? "No votes / masked" : "Awaiting precinct results") + "</span>" +
+      (ok ? "<span class=note>Lighter shade = closer race</span>" : "");
+    var h = "<svg viewBox='-4 -4 308 437' role=img aria-label='Map of Reno voting precincts" + (ok ? " colored by leader in the mayor race" : "; precinct results not yet available") + "'>";
+    var rows = [];
+    Object.keys(GEO.precincts).forEach(function (id) {
+      var g = GEO.precincts[id], fill = "var(--nores)", op = 1, title = "Precinct " + id + " (Ward " + g.w + "): awaiting precinct results";
+      if (ok) {
+        var v = P.p[id];
+        if (!v) title = "Precinct " + id + " (Ward " + g.w + "): not in the Registrar's file";
+        else if (v[0] == null || v[1] == null) title = "Precinct " + id + " (Ward " + g.w + "): masked by the Registrar for privacy";
+        else if (!v[2]) title = "Precinct " + id + " (Ward " + g.w + "): no votes recorded";
+        else {
+          var a = v[0], b = v[1], t = v[2];
+          if (a === b) { fill = "#718096"; }
+          else { var i = a > b ? 0 : 1; fill = col[i]; op = opacity(100 * Math.abs(a - b) / t); }
+          title = "Precinct " + id + " (Ward " + g.w + "): " + person(names[0]) + " " + num(a) + " (" + pct(a, t) + "), " + person(names[1]) + " " + num(b) + " (" + pct(b, t) + ")";
+        }
+        rows.push([id, g.w, v]);
+      }
+      h += "<path class=pc d='" + g.d + "' fill='" + fill + "' fill-opacity='" + op.toFixed(2) + "' stroke='var(--card)' stroke-width='0.5' stroke-linejoin='round'><title>" + esc(title) + "</title></path>";
+    });
+    Object.keys(GEO.wards).forEach(function (w) { h += "<path d='" + GEO.wards[w].d + "' fill='none' stroke='var(--ink)' stroke-width='1.3' stroke-opacity='0.75' pointer-events='none'/>"; });
+    Object.keys(GEO.wards).forEach(function (w) { var g = GEO.wards[w]; h += "<text class=maplabel style='font-size:11px;font-weight:700' x='" + g.x + "' y='" + g.y + "' text-anchor=middle>Ward " + w + "</text>"; });
+    $("precinctMap").innerHTML = h + "</svg>";
+    if (!ok) { $("precinctTable").innerHTML = "<p class=meta>No precinct results yet.</p>"; return; }
+    rows.sort(function (x, y) { return x[0] < y[0] ? -1 : 1; });
+    var tb = "<table><thead><tr><th scope=col>Precinct</th><th scope=col>Ward</th><th scope=col class=num>" + esc(person(names[0])) + "</th><th scope=col class=num>" + esc(person(names[1])) + "</th><th scope=col class=num>Total votes</th><th scope=col>Leader</th></tr></thead><tbody>";
+    rows.forEach(function (r) {
+      var v = r[2] || [null, null, null], L = (v[0] != null && v[1] != null && v[2]) ? (v[0] === v[1] ? "Tied" : person(names[v[0] > v[1] ? 0 : 1])) : "—";
+      tb += "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td><td class=num>" + num(v[0]) + "</td><td class=num>" + num(v[1]) + "</td><td class=num>" + num(v[2]) + "</td><td>" + esc(L) + "</td></tr>";
+    });
+    if (P.tot) tb += "</tbody><tfoot><tr><td colspan=2>Registrar's file total</td><td class=num>" + num(P.tot[0]) + "</td><td class=num>" + num(P.tot[1]) + "</td><td class=num>" + num(P.tot[2]) + "</td><td></td></tr></tfoot>";
+    $("precinctTable").innerHTML = tb + "</table>";
+  }
+  function fetchFrom(urls, i) {
+    if (i >= urls.length) return Promise.reject(new Error("all sources failed"));
+    var u = urls[i]; u += (u.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
+    return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+      .then(function (t) { JSON.parse(t); return t; }).catch(function () { return fetchFrom(urls, i + 1); });
+  }
+  function pollPrecincts() {
+    return fetchFrom(P_URLS, 0).then(function (t) {
+      if (t === lastPText) return;
+      var np = JSON.parse(t);
+      // never replace valid precinct data with an older or 'awaiting' copy (e.g. a stale cache)
+      if (P && P.status === "ok" && (np.status !== "ok" || (np.gen || "") < (P.gen || ""))) return;
+      lastPText = t; P = np; renderPrecincts();
+    }).catch(function () { if (!P) renderPrecincts(); });
+  }
+
   function renderLocal() {
     var rs = D.races.filter(function (r) { return r.s === "sparks"; }).concat(D.races.filter(function (r) { return r.s === "washoe"; }));
     $("localRaces").innerHTML = rs.map(function (r) { return raceCard(r); }).join("");
@@ -289,7 +364,7 @@
   }
 
   function renderAll() {
-    renderStatus(); renderBanner(); renderTabs(); renderRace(); renderGlance(); renderReno(); renderLocal(); renderTurnout();
+    renderStatus(); renderBanner(); renderTabs(); renderRace(); renderGlance(); renderReno(); renderPrecincts(); renderLocal(); renderTurnout();
     $("washoeStatus").textContent = D.washoe || "—";
   }
 
@@ -325,8 +400,8 @@
     }).catch(function (e) { lastErr = e.message; renderStatus(); });
   }
   fetch("geo.json").then(function (r) { return r.json(); }).then(function (g) {
-    GEO = g; poll(); setInterval(poll, POLL_MS); setInterval(tickAgo, 1000);
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+    GEO = g; poll(); pollPrecincts(); setInterval(poll, POLL_MS); setInterval(pollPrecincts, POLL_MS); setInterval(tickAgo, 1000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); pollPrecincts(); } });
   }).catch(function (e) { lastErr = "map geometry: " + e.message; renderStatus(); });
-  window.__nvPoll = poll; // for testing
+  window.__nvPoll = poll; window.__nvPollPrecincts = pollPrecincts; // for testing
 })();

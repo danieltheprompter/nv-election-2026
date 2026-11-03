@@ -61,8 +61,11 @@ tr.lead td{font-weight:700}
 .note{font-size:.88rem;color:var(--mut)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.92rem;margin-bottom:10px}
 .legend>span{display:inline-flex;align-items:center}
-#map svg,#wardMap svg{width:100%;height:auto;display:block;max-width:400px;margin:0 auto}
+#map svg,#wardMap svg,#precinctMap svg{width:100%;height:auto;display:block;max-width:400px;margin:0 auto}
 #wardMap svg{max-width:360px}
+#precinctMap svg{max-width:520px}
+#precinctMap path.pc:hover{stroke:var(--ink);stroke-width:1.2}
+#precinctDetails{margin-top:10px}#precinctDetails summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
 #map path{cursor:pointer}
 #map path:hover,#map path.sel{stroke:var(--ink);stroke-width:2}
 .maplabel{font-size:8px;fill:var(--ink);pointer-events:none;paint-order:stroke;stroke:var(--card);stroke-width:2.5px}

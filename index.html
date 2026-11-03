@@ -67,6 +67,14 @@
   <section id="reno" aria-labelledby="h-reno">
     <h2 id="h-reno">City of Reno</h2>
     <div id="renoMayor" class="card feature"></div>
+    <div class="card" id="precinctCard">
+      <h3>Reno mayor by precinct <span class="pill">Marshall vs. Taylor</span></h3>
+      <p class="meta" id="precinctStatus">Loading…</p>
+      <div id="precinctLegend" class="legend" aria-label="Precinct map legend"></div>
+      <div id="precinctMap"></div>
+      <details id="precinctDetails"><summary>Precinct-by-precinct table</summary><div class="scroll" id="precinctTable" tabindex="0"></div></details>
+      <p class="note">Precinct boundaries: Washoe County GIS (Voter Precincts layer), 161 precincts inside Reno city limits; heavy outlines are council wards. Precinct numbers come only from the Washoe County Registrar's Statement of Votes Cast spreadsheet. The Secretary of State's election-night feed has city-wide totals only, so this map stays gray until the Registrar posts that spreadsheet (in the June primary, the unofficial spreadsheet was generated at 12:45 a.m. the night of the election and was online by noon the next day; the official one followed at the canvass).</p>
+    </div>
     <div class="grid2" id="renoOther"></div>
     <div class="card">
       <h3>Reno City Council wards on the 2026 ballot</h3>
@@ -95,7 +103,8 @@
         <li>Washoe County: <a href="https://electionresults.washoecounty.gov/">Washoe County Registrar of Voters – Election Results</a> and <a href="https://www.washoecounty.gov/voters/">Washoe County Registrar of Voters</a>.</li>
         <li>Washoe registrar results page, as last checked by this tracker: <span id="washoeStatus">—</span></li>
         <li>Ballot question text is the official wording as published in the Secretary of State feed.</li>
-        <li>County outlines: U.S. Census Bureau cartographic boundaries (us-atlas). Reno wards: Washoe County GIS OpenData.</li>
+        <li>County outlines: U.S. Census Bureau cartographic boundaries (us-atlas). Reno wards and voting precincts: Washoe County GIS OpenData.</li>
+        <li>Reno mayor by precinct: <a href="https://www.washoecounty.gov/voters/results/2026data.php">Washoe County Registrar – 2026 Election Data</a> (Statement of Votes Cast spreadsheet), shown only when it is posted and passes checks: <span id="precinctSrc">—</span></li>
       </ul>
       <p class="note">The SOS feed reports how many counties have sent results, not precincts or expected vote, so this page cannot say what share of ballots is counted.
         The data is refreshed from the SOS feed about every 2 minutes, and this page re-checks it every minute. Nevada has no U.S. Senate race in 2026.</p>

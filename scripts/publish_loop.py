@@ -5,7 +5,9 @@ Loops for --iterations cycles, one every --interval seconds: runs the vendored s
 the box's fetch.py) in an isolated work dir, then compares its page_data.min.json with the published
 data/results.json on origin/main, ignoring the "u" fetch timestamp. Commits + pushes only if the content differs
 AND the SOS release sequence is not older than the published one (so a lagging fetcher can never roll the site
-back). Stops doing work after 2026-11-13 23:59 PT. Only numbers present in the SOS feed are ever written.
+back). Each cycle it also runs scripts/reno_precincts.py, which publishes data/reno_precincts.json (Reno mayor
+by precinct) only from a Washoe Registrar Statement of Votes Cast that parses and passes its checks; otherwise
+"awaiting". Valid precinct data is never replaced by "awaiting" or an older file. Stops doing work after 2026-11-13 23:59 PT. Only numbers present in the SOS feed are ever written.
 """
 import argparse, datetime as dt, json, os, shutil, subprocess, sys, time
 from zoneinfo import ZoneInfo
@@ -13,6 +15,9 @@ from zoneinfo import ZoneInfo
 PT = ZoneInfo("America/Los_Angeles")
 STOP_AT = dt.datetime(2026, 11, 13, 23, 59, 59, tzinfo=PT)
 DATA_PATH = "data/results.json"
+P_PATH = "data/reno_precincts.json"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import reno_precincts  # noqa: E402
 
 
 def log(msg):
@@ -60,11 +65,41 @@ def try_publish(new_text, new, branch):
     git("commit", "-q", "-m", msg, check=True)
     rc, out = git("push", "-q", "origin", f"HEAD:{branch}")
     log(("pushed: " if rc == 0 else f"push FAILED (will re-evaluate next cycle): {out[-300:]} :: ") + msg + f" [{why}]")
-    if rc == 0 and os.environ.get("GITHUB_REPOSITORY"):
+    if rc == 0:
+        request_pages_build()
+
+
+def request_pages_build():
+    if os.environ.get("GITHUB_REPOSITORY"):
         # pushes made with GITHUB_TOKEN may not start a Pages build by themselves; request one explicitly
         r = subprocess.run(["gh", "api", "-X", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/pages/builds"],
                            capture_output=True, text=True)
         log("requested Pages build: " + ("ok" if r.returncode == 0 else (r.stdout + r.stderr).strip()[-200:]))
+
+
+def try_publish_precincts(work, branch):
+    new = reno_precincts.build(os.path.join(work, "precinct_state"),
+                               os.path.join(work, "data", "washoe_results.html"), log=log)
+    git("fetch", "-q", "origin", branch, check=True)
+    git("reset", "-q", "--hard", f"origin/{branch}", check=True)
+    try:
+        pub = json.load(open(P_PATH))
+    except Exception:
+        pub = None
+    ok, why = reno_precincts.should_publish(new, pub)
+    if not ok:
+        if "identical" not in why:
+            log(f"precincts: no push: {why}")
+        return
+    new = dict(new); now = dt.datetime.now(PT); new["u"] = f"{now:%-I:%M %p} PT, {now:%b %-d}"
+    open(P_PATH, "w").write(json.dumps(new, separators=(",", ":"), ensure_ascii=False))
+    msg = f"Data: Reno precincts {new.get('status')} ({new.get('gen') or 'no SOVC'}) [actions]"
+    git("add", P_PATH, check=True)
+    git("commit", "-q", "-m", msg, check=True)
+    rc, out = git("push", "-q", "origin", f"HEAD:{branch}")
+    log(("pushed: " if rc == 0 else f"push FAILED (will re-evaluate next cycle): {out[-300:]} :: ") + msg + f" [{why}]")
+    if rc == 0:
+        request_pages_build()
 
 
 def main():
@@ -100,6 +135,10 @@ def main():
                 log(f"publish error: {e!r}")
         else:
             fails += 1
+        try:
+            try_publish_precincts(a.work, a.branch)
+        except Exception as e:
+            log(f"precinct publish error: {e!r}")
         if i < a.iterations - 1:
             time.sleep(max(5, a.interval - (time.time() - start)))
     if fails and fails == a.iterations:
