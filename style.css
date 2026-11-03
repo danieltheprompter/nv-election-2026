@@ -20,7 +20,7 @@ section{scroll-margin-top:150px}
 .banner.live{border-left:5px solid #d69e2e}
 .banner strong{font-size:1.05rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:0 0 14px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .grid2>.card{margin:0}
 #renoOther,#localRaces{margin-bottom:14px}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
