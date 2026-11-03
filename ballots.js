@@ -233,20 +233,32 @@
     return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
       .then(function (t) { JSON.parse(t); return t; }).catch(function () { return fetchText(i + 1); });
   }
-  function poll() {
-    return fetchText(0).then(function (txt) {
-      lastErr = null; lastOk = Date.now();
-      if (txt !== lastText) {
-        var nd = JSON.parse(txt);
-        if (B && nd.mail && B.mail && (nd.mail.gen || "") < (B.mail.gen || "")) { renderStatus(); return; } // never go back to an older file
-        lastText = txt; B = nd; renderAll();
-      } else renderStatus();
-    }).catch(function (e) { lastErr = e.message; renderStatus(); });
+  function bkey(d) { return d && d.mail ? [d.mail.gen || "", (d.inperson && d.inperson.gen) || ""].sort().pop() : null; }
+  function applyBallots(txt) { // returns true if the page now shows different data
+    lastErr = null; lastOk = Date.now();
+    if (txt === lastText) { renderStatus(); return false; }
+    var nd = JSON.parse(txt);
+    if (B && nd.mail && B.mail && (nd.mail.gen || "") < (B.mail.gen || "")) { renderStatus(); return false; } // never go back to an older file
+    lastText = txt; B = nd; renderAll(); return true;
   }
+  function poll() {
+    return fetchText(0).then(applyBallots).catch(function (e) { lastErr = e.message; renderStatus(); });
+  }
+  // Manual refresh: fetch the Pages and raw copies at once and keep whichever has the newer VIVID files.
+  function manualRefresh() {
+    return window.NVRefresh.fetchAll(URLS).then(function (got) {
+      var c = window.NVRefresh.newest(got, bkey);
+      if (!c) { lastErr = "all data sources failed"; renderStatus(); throw new Error("couldn't reach the data file"); }
+      return applyBallots(c.text);
+    });
+  }
+  var timer = null;
+  function schedule() { clearInterval(timer); timer = setInterval(poll, POLL_MS); }
   fetch("geo.json").then(function (r) { return r.json(); }).then(function (g) {
-    GEO = g; poll(); setInterval(poll, POLL_MS);
+    GEO = g; poll(); schedule();
     setInterval(function () { var a = $("ago"); if (a) a.textContent = "· " + agoText(); }, 15000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
   }).catch(function (e) { lastErr = "map geometry: " + e.message; renderStatus(); });
+  if (window.NVRefresh) window.NVRefresh.init({ run: manualRefresh, reschedule: schedule, asof: function () { return B && B.mail ? "mail " + B.mail.asof + ", in-person " + B.inperson.asof : ""; } });
   window.__nvBallotsPoll = poll;
 })();

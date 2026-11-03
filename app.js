@@ -367,13 +367,7 @@
       .then(function (t) { JSON.parse(t); return t; }).catch(function () { return fetchFrom(urls, i + 1); });
   }
   function pollPrecincts() {
-    return fetchFrom(P_URLS, 0).then(function (t) {
-      if (t === lastPText) return;
-      var np = JSON.parse(t);
-      // never replace valid precinct data with an older or 'awaiting' copy (e.g. a stale cache)
-      if (P && P.status === "ok" && (np.status !== "ok" || (np.gen || "") < (P.gen || ""))) return;
-      lastPText = t; P = np; renderPrecincts();
-    }).catch(function () { if (!P) renderPrecincts(); });
+    return fetchFrom(P_URLS, 0).then(applyPrecincts).catch(function () { if (!P) renderPrecincts(); });
   }
 
   function renderLocal() {
@@ -417,17 +411,37 @@
       return r.text();
     }).then(function (txt) { JSON.parse(txt); return txt; }).catch(function () { return fetchText(i + 1); });
   }
-  function poll() {
-    return fetchText(0).then(function (txt) {
-      lastErr = null; lastOkTs = Date.now();
-      if (txt !== lastText) {
-        var nd = JSON.parse(txt);
-        // never go backwards to an older SOS release (e.g. a stale cached copy)
-        if (D && nd.seq != null && D.seq != null && nd.seq < D.seq) { renderStatus(); return; }
-        lastText = txt; D = nd; renderAll();
-      } else renderStatus();
-    }).catch(function (e) { lastErr = e.message; renderStatus(); });
+  function applyResults(txt) { // returns true if the page now shows different data
+    lastErr = null; lastOkTs = Date.now();
+    if (txt === lastText) { renderStatus(); return false; }
+    var nd = JSON.parse(txt);
+    // never go backwards to an older SOS release (e.g. a stale cached copy)
+    if (D && nd.seq != null && D.seq != null && nd.seq < D.seq) { renderStatus(); return false; }
+    lastText = txt; D = nd; renderAll(); return true;
   }
+  function applyPrecincts(t) {
+    if (t === lastPText) return false;
+    var np = JSON.parse(t);
+    // never replace valid precinct data with an older or 'awaiting' copy (e.g. a stale cache)
+    if (P && P.status === "ok" && (np.status !== "ok" || (np.gen || "") < (P.gen || ""))) return false;
+    lastPText = t; P = np; renderPrecincts(); return true;
+  }
+  function poll() {
+    return fetchText(0).then(applyResults).catch(function (e) { lastErr = e.message; renderStatus(); });
+  }
+  // Manual refresh: fetch the Pages and raw copies at once and keep whichever has the newer SOS release.
+  function manualRefresh() {
+    var R = window.NVRefresh;
+    return Promise.all([R.fetchAll(DATA_URLS), R.fetchAll(P_URLS)]).then(function (got) {
+      var rc = R.newest(got[0], function (d) { return d.seq; }), pc = R.newest(got[1], function (d) { return d.status === "ok" ? (d.gen || "") : ""; });
+      var pch = false;
+      if (pc) { try { pch = applyPrecincts(pc.text); } catch (e) {} }
+      if (!rc) { lastErr = "all data sources failed"; renderStatus(); throw new Error("couldn't reach the data file"); }
+      return applyResults(rc.text) || pch;
+    });
+  }
+  var timer = null;
+  function schedule() { clearInterval(timer); timer = setInterval(function () { poll(); pollPrecincts(); }, POLL_MS); }
   // context layers load after the results maps and are drawn in when they arrive (optional; maps work without them)
   setTimeout(function () {
     fetch("context.json?v=ballots1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
@@ -435,8 +449,9 @@
     }).catch(function () {});
   }, 300);
   fetch("geo.json").then(function (r) { return r.json(); }).then(function (g) {
-    GEO = g; poll(); pollPrecincts(); setInterval(poll, POLL_MS); setInterval(pollPrecincts, POLL_MS); setInterval(tickAgo, 1000);
+    GEO = g; poll(); pollPrecincts(); schedule(); setInterval(tickAgo, 1000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); pollPrecincts(); } });
   }).catch(function (e) { lastErr = "map geometry: " + e.message; renderStatus(); });
+  if (window.NVRefresh) window.NVRefresh.init({ run: manualRefresh, reschedule: schedule, asof: function () { return D ? D.u : ""; } });
   window.__nvPoll = poll; window.__nvPollPrecincts = pollPrecincts; // for testing
 })();

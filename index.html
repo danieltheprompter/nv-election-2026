@@ -6,7 +6,7 @@
 <title>Nevada 2026 Election Results — updates automatically (unofficial)</title>
 <meta name="description" content="Unofficial, independent tracker of Nevada's Nov 3, 2026 general election results, mirrored from the Nevada Secretary of State results feed. Updates automatically. Not an official government site.">
 <meta name="color-scheme" content="light dark">
-<link rel="stylesheet" href="style.css?v=counts1">
+<link rel="stylesheet" href="style.css?v=refresh1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%231f5fa8%22/%3E%3C/svg%3E">
 </head>
 <body>
@@ -17,6 +17,7 @@
     <p class="disclaimer"><strong>Unofficial tracker — not an official government website.</strong> Numbers are copied automatically from the
       <a href="https://silverstateelection.nv.gov/" rel="noopener">Nevada Secretary of State</a> results feed.</p>
     <p id="status" class="status" role="status" aria-live="polite">Loading results…</p>
+    <div class="refresh"><button id="refreshBtn" type="button" class="rbtn"><span class="ri" aria-hidden="true">&#x21bb;</span> Refresh</button><span id="refreshMsg" class="rmsg" role="status" aria-live="polite"></span></div>
     <nav class="pages" aria-label="Site pages"><a href="index.html" aria-current="page">Results</a><a href="ballots.html">Ballots received</a></nav>
     <nav class="toc" aria-label="Jump to section">
       <a href="#statewide">Statewide</a><a href="#reno">Reno</a><a href="#local">Sparks &amp; Washoe</a><a href="#turnout">Turnout</a><a href="#sources">Sources</a>
@@ -110,7 +111,8 @@
   </section>
 </main>
 <footer class="wrap foot">Unofficial tracker built for personal use; not affiliated with the State of Nevada or Washoe County. <a href="https://github.com/danieltheprompter/nv-election-2026">Source on GitHub</a>.</footer>
+<script src="refresh.js?v=refresh1"></script>
 <script src="zoom.js?v=ballots1"></script>
-<script src="app.js?v=ballots1"></script>
+<script src="app.js?v=refresh1"></script>
 </body>
 </html>

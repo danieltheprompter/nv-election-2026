@@ -160,3 +160,13 @@ details.more>summary{cursor:pointer;font-weight:600;padding:6px 0;color:var(--ac
 .hero .hl{font-size:1rem}
 .hero .hl strong{white-space:nowrap}
 td .cp{display:block;font-size:.8rem;color:var(--mut)}
+.refresh{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 10px}
+.rbtn{font:inherit;font-weight:600;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:8px 16px;border:2px solid var(--acc);border-radius:999px;background:var(--card);color:var(--acc);cursor:pointer}
+.rbtn:hover{background:color-mix(in srgb,var(--acc) 10%,var(--card))}
+.rbtn:disabled{opacity:.7;cursor:progress}
+.rbtn .ri{display:inline-block;font-size:1.15em;line-height:1}
+.rbtn.busy .ri{animation:nvspin .8s linear infinite}
+@keyframes nvspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.rbtn.busy .ri{animation:none}}
+.rmsg{font-size:.92rem;color:var(--mut)}
+.rmsg.err{color:var(--warn)}
