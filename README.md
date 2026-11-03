@@ -18,3 +18,18 @@ Numbers are mirrored, unmodified, from the Nevada Secretary of State results fee
      `workflow_dispatch` (input `iterations`). Does nothing after Nov 13, 2026 11:59 PM PT.
   2. Backup on the maintainer's always-on box (`site_updater.py`, every 2 min, same rule, dedicated clone).
 - Only numbers present in the SOS feed are ever published; nothing is estimated or projected.
+
+## Reno mayor by precinct (`data/reno_precincts.json`)
+
+- The SOS election-night feed has city-wide totals only. Precinct counts come solely from the Washoe County
+  Registrar's **Statement of Votes Cast** spreadsheet (.xlsx), linked from
+  https://www.washoecounty.gov/voters/results/2026data.php. In the June 2026 primary the unofficial one
+  (`6-9-USOVC.xlsx`) was generated 12:45 AM PT the night of the election and online by noon the next day; the official
+  one followed at the canvass.
+- `scripts/reno_precincts.py` (finds the link) + `scripts/washoe_sovc.py` (parses it) run every cycle in both updaters.
+  Fail-safe: the file is published only if the RENO CITY MAYOR contest is found, the candidates are exactly Marshall and
+  Taylor, the file is dated on/after Nov 3, 2026, every row is understood, and precinct sums equal the file's county total
+  (skipped only where the county masks small precincts with `****`). Anything else -> `"status":"awaiting"` (map stays gray).
+  Published `ok` data is never replaced by `awaiting` or by an older spreadsheet. Validated against both real June 2026 primary files.
+- Boundaries: Washoe County GIS OpenData FeatureServer layer 7 (Voter Precincts), 161 precincts with a Reno ward
+  (RWARDS 1-6), simplified into `geo.json` -> `precincts`; this matches the 161 precincts in the county's RENO CITY MAYOR contest.
