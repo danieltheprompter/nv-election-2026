@@ -57,7 +57,8 @@
     <div class="card">
       <div class="grid2 bgrid">
         <div class="mapcard">
-          <h4>Share of active registered voters whose ballot has been received</h4>
+          <h4 id="mapTitle">Party lead among ballots received (Democratic vs. Republican share)</h4>
+          <div class="groups" id="mapMode" role="group" aria-label="Map coloring"></div>
           <div id="legend" class="legend" aria-label="Map legend"></div>
           <div id="map"></div>
           <p class="note" id="mapNote"></p>
@@ -91,6 +92,6 @@
 </main>
 <footer class="wrap foot">Unofficial tracker built for personal use; not affiliated with the State of Nevada or Washoe County. <a href="https://github.com/danieltheprompter/nv-election-2026">Source on GitHub</a>.</footer>
 <script src="zoom.js?v=ballots1"></script>
-<script src="ballots.js?v=ballots1"></script>
+<script src="ballots.js?v=party1"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@
   var PC = ["#1f5fa8", "#c8372d", "#8a8a8a"], PN = ["Democratic", "Republican", "Other"];
   var SMALL = { "01": 1, "04": 1, "15": 1 };
   var B = null, GEO = null, lastText = null, lastOk = null, lastErr = null;
-  var ui = { county: "16", sort: "reg", dir: -1 };
+  var ui = { county: "16", sort: "reg", dir: -1, mode: "party" };
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -98,17 +98,34 @@
   var RAMP = ["#fcfbfd", "#efedf5", "#dadaeb", "#bcbddc", "#9e9ac8", "#807dba", "#6a51a3", "#54278f", "#3f007d"];
   function binOf(p) { var b = 0; for (var i = 0; i < BINS.length; i++) if (p * 100 >= BINS[i]) b = i; return b; }
   function binLabel(i) { return i === BINS.length - 1 ? BINS[i] + "% or more" : i === 0 ? "under " + BINS[1] + "%" : BINS[i] + "–" + BINS[i + 1] + "%"; }
+  // party mode: diverging bins of the D-minus-R margin, in points, among all ballots received (Other counts in the base, not the color)
+  var MB = [0, 5, 10, 20, 30];
+  var BLUES = ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"], REDS = ["#fcbba1", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"];
+  function margin(f) { var t = s3(f.party); return t ? (f.party[0] - f.party[1]) / t * 100 : null; }
+  function mbin(m) { var a = Math.abs(m), b = 0; for (var i = 0; i < MB.length; i++) if (a >= MB[i]) b = i; return b; }
+  function mcolor(m) { return m == null ? "var(--bg)" : (m >= 0 ? BLUES : REDS)[mbin(m)]; }
+  function mlabel(i) { return i === MB.length - 1 ? MB[i] + "+ pts" : MB[i] + "–" + MB[i + 1] + " pts"; }
+  function leadText(m) { return m == null ? "no data" : Math.abs(m) < 0.05 ? "even" : (m > 0 ? "D +" : "R +") + Math.abs(m).toFixed(1) + " pts"; }
+  function shareText(f) { var t = s3(f.party); return t ? PN.map(function (n, i) { return n.slice(0, 3) + " " + (f.party[i] / t * 100).toFixed(1) + "%"; }).join(" · ") : ""; }
   function renderMap() {
+    var party = ui.mode === "party";
+    $("mapMode").innerHTML = [["party", "Party lead"], ["ret", "% received"]].map(function (x) {
+      return "<button type=button data-mode='" + x[0] + "' aria-pressed=" + (ui.mode === x[0]) + ">" + x[1] + "</button>"; }).join("");
+    $("mapTitle").textContent = party ? "Party lead among ballots received (Democratic vs. Republican share)" : "Share of active registered voters whose ballot has been received";
     var used = {};
-    B.counties.forEach(function (c) { var f = cfig(c); if (f.p != null) used[binOf(f.p)] = 1; });
-    $("legend").innerHTML = BINS.map(function (b, i) {
-      return used[i] ? "<span><span class=sw style='background:" + RAMP[i] + ";border:1px solid var(--line)'></span>" + binLabel(i) + "</span>" : "";
-    }).join("");
-    var h = "<svg viewBox='-4 -4 308 461' role=img aria-label='Map of Nevada counties shaded by the share of active registered voters whose ballot has been received'>";
+    B.counties.forEach(function (c) { var f = cfig(c);
+      if (party) { var m = margin(f); if (m != null) used[(m >= 0 ? "d" : "r") + mbin(m)] = 1; } else if (f.p != null) used[binOf(f.p)] = 1; });
+    var sw = function (col, l) { return "<span><span class=sw style='background:" + col + ";border:1px solid var(--line)'></span>" + l + "</span>"; };
+    $("legend").innerHTML = party ?
+      MB.map(function (b, i) { return used["d" + i] ? sw(BLUES[i], "D " + mlabel(i)) : ""; }).reverse().join("") +
+      MB.map(function (b, i) { return used["r" + i] ? sw(REDS[i], "R " + mlabel(i)) : ""; }).join("")
+      : BINS.map(function (b, i) { return used[i] ? sw(RAMP[i], binLabel(i)) : ""; }).join("");
+    var h = "<svg viewBox='-4 -4 308 461' role=img aria-label='" + (party ? "Map of Nevada counties shaded by the Democratic or Republican lead in share of ballots received" : "Map of Nevada counties shaded by the share of active registered voters whose ballot has been received") + "'>";
     Object.keys(GEO.counties).forEach(function (code) {
       var g = GEO.counties[code], c = byCode(code), f = c ? cfig(c) : null;
-      h += "<path data-c='" + code + "' d='" + g.d + "' fill='" + (f && f.p != null ? RAMP[binOf(f.p)] : "var(--bg)") + "' stroke='var(--card)' stroke-width='1' stroke-linejoin='round'" +
-        (ui.county === code ? " class=sel" : "") + "><title>" + esc((c ? c.n : code) + ": " + (f ? pct(f.tot, f.reg) + " of active registered voters (" + num(f.tot) + " of " + num(f.reg) + ")" : "no data")) + "</title></path>";
+      var fill = !f ? "var(--bg)" : party ? mcolor(margin(f)) : (f.p != null ? RAMP[binOf(f.p)] : "var(--bg)");
+      h += "<path data-c='" + code + "' d='" + g.d + "' fill='" + fill + "' stroke='var(--card)' stroke-width='1' stroke-linejoin='round'" +
+        (ui.county === code ? " class=sel" : "") + "><title>" + esc((c ? c.n : code) + ": " + (f ? leadText(margin(f)) + " (" + shareText(f) + "); " + pct(f.tot, f.reg) + " of active registered voters (" + num(f.tot) + " of " + num(f.reg) + ")" : "no data")) + "</title></path>";
     });
     Object.keys(GEO.counties).forEach(function (code) {
       if (SMALL[code]) return; var g = GEO.counties[code], c = byCode(code);
@@ -116,7 +133,8 @@
     });
     $("map").innerHTML = h + "</svg>";
     var c = byCode(ui.county), f = c && cfig(c);
-    $("mapNote").innerHTML = c ? "<strong>" + esc(c.n) + ":</strong> " + pct(f.tot, f.reg) + " of active registered voters (" + num(f.tot) + " of " + num(f.reg) + "). Tap another county to switch." : "";
+    $("mapNote").innerHTML = c ? "<strong>" + esc(c.n) + ":</strong> " + leadText(margin(f)) + " among ballots received (" + shareText(f) + "). " + pct(f.tot, f.reg) + " of active registered voters (" + num(f.tot) + " of " + num(f.reg) + ") have a ballot received. Tap another county to switch." +
+      (party ? " Lead = Democratic share minus Republican share of all ballots received; “Other” (nonpartisan and minor parties) is in the share but not the color." : "") : "";
     renderCountyDetail();
   }
   function renderCountyDetail() {
@@ -128,14 +146,15 @@
       row("Active registered", c.reg.slice(0, 3)) + row("Mail ballots sent", m.sent) + row("Mail returned", m.received) + row("Mail accepted", m.accepted) +
       row("Needs signature cure", m.signatureCure) + row("Early in person", c.ev.slice(0, 3)) + row("Election Day in person", c.ed.slice(0, 3)) +
       "</tbody><tfoot>" + row("Total received", f.party) +
-      "<tr><td>% of registered</td>" + f.party.map(function (x, i) { return "<td class=num>" + pct(x, c.reg[i]) + "</td>"; }).join("") + "<td class=num>" + pct(f.tot, f.reg) + "</td></tr></tfoot></table></div>";
+      "<tr><td>% of registered</td>" + f.party.map(function (x, i) { return "<td class=num>" + pct(x, c.reg[i]) + "</td>"; }).join("") + "<td class=num>" + pct(f.tot, f.reg) + "</td></tr>" +
+      "<tr><td>Share of received</td>" + f.party.map(function (x) { return "<td class=num>" + pct(x, f.tot) + "</td>"; }).join("") + "<td class=num>100%</td></tr></tfoot></table></div>";
   }
 
-  var COLS = [["n", "County", 0], ["reg", "Active registered", 1], ["sent", "Mail sent", 1], ["ret", "Mail returned", 1], ["ev", "Early in person", 1], ["ed", "Election Day in person", 1], ["tot", "Total received", 1], ["p", "% of registered", 1], ["dem", "Dem % of received", 1], ["rep", "Rep % of received", 1], ["oth", "Other % of received", 1]];
+  var COLS = [["n", "County", 0], ["reg", "Active registered", 1], ["sent", "Mail sent", 1], ["ret", "Mail returned", 1], ["ev", "Early in person", 1], ["ed", "Election Day in person", 1], ["tot", "Total received", 1], ["p", "% of registered", 1], ["dem", "Dem % of received", 1], ["rep", "Rep % of received", 1], ["oth", "Other % of received", 1], ["lead", "Lead (D − R)", 1]];
   function renderCountyTable() {
     var rows = B.counties.map(function (c) {
       var f = cfig(c); f.n = c.n; f.c = c.c; var t = s3(f.party);
-      f.dem = t ? f.party[0] / t : null; f.rep = t ? f.party[1] / t : null; f.oth = t ? f.party[2] / t : null; return f;
+      f.dem = t ? f.party[0] / t : null; f.rep = t ? f.party[1] / t : null; f.oth = t ? f.party[2] / t : null; f.lead = margin(f); return f;
     });
     rows.sort(function (a, b) {
       var x = a[ui.sort], y = b[ui.sort];
@@ -148,11 +167,11 @@
     rows.forEach(function (f) {
       h += "<tr" + (f.c === ui.county ? " class=sel" : "") + "><td><button type=button class=cty data-c='" + f.c + "'>" + esc(f.n) + "</button></td><td class=num>" + num(f.reg) + "</td><td class=num>" + num(f.sent) + "</td><td class=num>" + num(f.ret) +
         "</td><td class=num>" + num(f.ev) + "</td><td class=num>" + num(f.ed) + "</td><td class=num><strong>" + num(f.tot) + "</strong></td><td class=num>" + pct(f.tot, f.reg) +
-        "</td><td class=num>" + pct(f.party[0], s3(f.party)) + "</td><td class=num>" + pct(f.party[1], s3(f.party)) + "</td><td class=num>" + pct(f.party[2], s3(f.party)) + "</td></tr>";
+        "</td><td class=num>" + pct(f.party[0], s3(f.party)) + "</td><td class=num>" + pct(f.party[1], s3(f.party)) + "</td><td class=num>" + pct(f.party[2], s3(f.party)) + "</td><td class=num>" + leadText(f.lead) + "</td></tr>";
     });
     var T = rows.reduce(function (a, f) { return { reg: a.reg + f.reg, sent: a.sent + f.sent, ret: a.ret + f.ret, ev: a.ev + f.ev, ed: a.ed + f.ed, tot: a.tot + f.tot, party: add(a.party, f.party) }; }, { reg: 0, sent: 0, ret: 0, ev: 0, ed: 0, tot: 0, party: [0, 0, 0] });
     h += "</tbody><tfoot><tr><td>Nevada</td><td class=num>" + num(T.reg) + "</td><td class=num>" + num(T.sent) + "</td><td class=num>" + num(T.ret) + "</td><td class=num>" + num(T.ev) + "</td><td class=num>" + num(T.ed) +
-      "</td><td class=num>" + num(T.tot) + "</td><td class=num>" + pct(T.tot, T.reg) + "</td><td class=num>" + pct(T.party[0], T.tot) + "</td><td class=num>" + pct(T.party[1], T.tot) + "</td><td class=num>" + pct(T.party[2], T.tot) + "</td></tr></tfoot></table>";
+      "</td><td class=num>" + num(T.tot) + "</td><td class=num>" + pct(T.tot, T.reg) + "</td><td class=num>" + pct(T.party[0], T.tot) + "</td><td class=num>" + pct(T.party[1], T.tot) + "</td><td class=num>" + pct(T.party[2], T.tot) + "</td><td class=num>" + leadText(margin(T)) + "</td></tr></tfoot></table>";
     $("countyTable").innerHTML = h + "<p class=note>Party shares are of ballots received in that county, by the voter's party registration.</p>";
   }
 
@@ -183,8 +202,9 @@
   function renderAll() { renderStatus(); renderSummary(); renderParty(); renderMap(); renderCountyTable(); renderDaily(); renderSources(); }
 
   document.addEventListener("click", function (e) {
-    var t = e.target.closest ? e.target.closest("[data-c],[data-sort]") : null; if (!t || !B) return;
-    if (t.dataset.sort) {
+    var t = e.target.closest ? e.target.closest("[data-c],[data-sort],[data-mode]") : null; if (!t || !B) return;
+    if (t.dataset.mode) { ui.mode = t.dataset.mode; renderMap(); }
+    else if (t.dataset.sort) {
       var k = t.dataset.sort; if (ui.sort === k) ui.dir = -ui.dir; else { ui.sort = k; ui.dir = k === "n" ? 1 : -1; }
       renderCountyTable(); var b = document.querySelector("[data-sort='" + k + "']"); if (b) b.focus();
     } else if (t.dataset.c) {
