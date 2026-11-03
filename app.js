@@ -250,27 +250,35 @@
   }
 
 
-  // ---------- map context layers (context.json: Washoe County GIS roads/water/parks, OSM place names) ----------
+  // ---------- map context layers (context.json: Washoe County GIS roads/water, OSM place names) ----------
+  // label priority when labels collide (lower wins): ward labels 0 > neighborhoods 1 > freeways 2 > streets 3 > precinct numbers 4
   var CTX = null;
-  function ctxText(cls, t, x, y, fs, minz, extra) {
-    return "<text class='ctxl " + cls + "' style='font-size:" + fs + "px" + (minz > 1 ? ";display:none" : "") + "' data-p='" + ({ plab: 1, rlab: 2, pklab: 3 }[cls.split(" ")[0]] || 2) + "' data-minz='" + minz + "' x='" + x + "' y='" + y + "' text-anchor=middle dominant-baseline=central" + (extra || "") + ">" + esc(t) + "</text>";
+  function ctxText(cls, p, t, x, y, fs, minz, extra) {
+    return "<text class='ctxl " + cls + "' style='font-size:" + fs + "px" + (minz > 1 ? ";display:none" : "") + "' data-p='" + p + "' data-minz='" + minz + "' x='" + x + "' y='" + y + "' text-anchor=middle dominant-baseline=central" + (extra || "") + ">" + esc(t) + "</text>";
   }
   function ctxLayers(kind, hasResults) {
     if (!CTX) return { under: "", labels: "" };
     var u = "<g class=ctx pointer-events=none aria-hidden=true>";
-    u += "<path class=cpark d='" + CTX.parks + "'" + (hasResults ? " fill='none'" : "") + "></path>";
-    u += "<path class=cwater d='" + CTX.water + "'></path>";
-    u += "<path class=ccreek d='" + CTX.creek + "' fill='none'></path>";
+    if (CTX.water) u += "<path class=cwater d='" + CTX.water + "'></path>";
     u += "<path class=criver d='" + CTX.river + "' fill='none'></path>";
     u += "<path class=cart d='" + CTX.art + "' fill='none'></path>";
     u += "<path class=cfw d='" + CTX.fw + "' fill='none'></path></g>";
     var l = "<g class=ctxlab pointer-events=none aria-hidden=true>", lift = kind === "ward" ? 1 : 0;
+    // precinct numbers: only once zoomed in (2x+) and only where the number fits inside its precinct (data-r)
     if (kind === "precinct") Object.keys(CTX.pn).forEach(function (id) {
-      var q = CTX.pn[id]; l += "<text class='ctxl pnum' style='font-size:8.5px;display:none' data-p='4' data-r='" + q[2] + "' x='" + q[0] + "' y='" + q[1] + "' text-anchor=middle dominant-baseline=central>" + esc(id) + "</text>";
+      var q = CTX.pn[id]; l += "<text class='ctxl pnum' style='font-size:8px;display:none' data-p='4' data-minz='2' data-r='" + q[2] + "' x='" + q[0] + "' y='" + q[1] + "' text-anchor=middle dominant-baseline=central>" + esc(id) + "</text>";
     });
-    CTX.pk.forEach(function (q) { l += ctxText("pklab", q.t, q.x, q.y, 8, q.z + lift); });
-    CTX.rl.forEach(function (q) { l += ctxText("rlab " + q.c, q.t, q.x, q.y, q.c === "fw" ? 8.5 : 8, q.z + lift, " transform='rotate(" + q.a + " " + q.x + " " + q.y + ")'"); });
-    CTX.pl.forEach(function (q) { l += ctxText("plab", q.t, q.x, q.y, 9.5, Math.max(q.z, 1 + lift)); });
+    // street names one zoom step later than before (arterials from 3x, secondary ones from 4x); freeways: one label each at 1x
+    CTX.rl.forEach(function (q) {
+      var fw = q.c === "fw";
+      l += ctxText("rlab " + q.c, fw ? 2 : 3, q.t, q.x, q.y, fw ? 8 : 7.5, (fw ? q.z : q.z + 1) + lift, " transform='rotate(" + q.a + " " + q.x + " " + q.y + ")'");
+    });
+    // neighborhoods: grow a little with zoom (data-zs) and may shift up/down a line to dodge a ward label (data-nudge)
+    // (x is pulled in just enough that a name near the map edge isn't cut off: ~0.72em per uppercase, letter-spaced character)
+    CTX.pl.forEach(function (q) {
+      var hw = q.t.length * 8.2 * 0.36, x = Math.min(Math.max(q.x, -2 + hw), 302 - hw);
+      l += ctxText("plab", 1, q.t, +x.toFixed(1), q.y, 8.2, Math.max(q.z, 1 + lift), " data-zs='0.22' data-nudge='1'");
+    });
     return { under: u, labels: l + "</g>" };
   }
 
@@ -430,7 +438,7 @@
   }
   // context layers load after the results maps and are drawn in when they arrive (optional; maps work without them)
   setTimeout(function () {
-    fetch("context.json").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
+    fetch("context.json?v=declutter1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
       CTX = c; if (GEO && D) renderReno(); if (GEO) renderPrecincts();
     }).catch(function () {});
   }, 300);

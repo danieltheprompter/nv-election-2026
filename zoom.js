@@ -44,19 +44,36 @@
     }
     function panBy(dx, dy) { s.tx += dx; s.ty += dy; apply(); }
     s.reset = function () { s.s = 1; s.tx = 0; s.ty = 0; apply(); };
-    // hide context labels that would overlap a higher-priority label (ward labels > places > roads > parks > precinct numbers)
+    // hide context labels that would overlap a higher-priority label (ward labels > neighborhoods > freeways > streets > precinct numbers);
+    // neighborhood labels (data-nudge) first try moving one line up or down before giving way
+    function overlaps(r, kept) {
+      var pad = 1.5;
+      for (var j = 0; j < kept.length; j++) {
+        var q = kept[j]; if (r.left - pad < q.right && r.right + pad > q.left && r.top - pad < q.bottom && r.bottom + pad > q.top) return true;
+      }
+      return false;
+    }
     function declutter(g) {
       if (!g.querySelector("text[data-p]")) return;
       var items = [];
-      g.querySelectorAll("text").forEach(function (t) { if (t.style.display !== "none") items.push([+(t.dataset.p || 0), t]); });
+      g.querySelectorAll("text").forEach(function (t) {
+        if (t.dataset.nudge) t.removeAttribute("dy");
+        if (t.style.display !== "none") items.push([+(t.dataset.p || 0), t]);
+      });
       items.sort(function (a, b) { return a[0] - b[0]; });
       var rects = items.map(function (it) { return it[1].getBoundingClientRect(); }), kept = [];
       items.forEach(function (it, i) {
-        var r = rects[i], pad = 1.5, hit = false;
-        if (it[0] > 0) for (var j = 0; j < kept.length && !hit; j++) {
-          var q = kept[j]; hit = r.left - pad < q.right && r.right + pad > q.left && r.top - pad < q.bottom && r.bottom + pad > q.top;
+        var r = rects[i], t = it[1];
+        if (it[0] > 0 && overlaps(r, kept)) {
+          var ok = false;
+          if (t.dataset.nudge) ["-1.15em", "1.15em", "-2.1em", "2.1em"].some(function (dy) {
+            t.setAttribute("dy", dy); var r2 = t.getBoundingClientRect();
+            if (!overlaps(r2, kept)) { r = r2; ok = true; return true; }
+            return false;
+          });
+          if (!ok) { t.removeAttribute("dy"); t.style.display = "none"; return; }
         }
-        if (hit) it[1].style.display = "none"; else kept.push(r);
+        kept.push(r);
       });
     }
     function apply() {
@@ -78,12 +95,14 @@
       g.setAttribute("transform", "translate(" + s.tx.toFixed(3) + " " + s.ty.toFixed(3) + ") scale(" + z.toFixed(4) + ")");
       var ppu = (sv.getBoundingClientRect().width || 300) / v[2] * z;   // screen px per map unit at this zoom
       g.querySelectorAll("text").forEach(function (t) {
-        t.style.fontSize = (t.dataset.fs / z) + "px";
-        if (+t.dataset.sw) t.style.strokeWidth = (t.dataset.sw / z) + "px";
+        // labels keep their on-screen size; ones with data-zs grow gently with zoom (z^zs, at most 1.35x)
+        var k = t.dataset.zs ? Math.min(Math.pow(z, +t.dataset.zs), 1.35) : 1;
+        t.style.fontSize = (t.dataset.fs * k / z) + "px";
+        if (+t.dataset.sw) t.style.strokeWidth = (t.dataset.sw * Math.min(k, 1.2) / z) + "px";
         // declutter: context labels appear only when zoomed in enough (data-minz), precinct numbers only when they fit (data-r)
         var show = true;
         if (t.dataset.minz) show = z >= +t.dataset.minz - 1e-6;
-        if (t.dataset.r) show = +t.dataset.r * ppu >= 3 + 2.6 * t.textContent.length;
+        if (show && t.dataset.r) show = +t.dataset.r * ppu >= 3 + 2.6 * t.textContent.length;
         t.style.display = show ? "" : "none";
       });
       declutter(g);
