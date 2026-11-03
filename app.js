@@ -234,21 +234,6 @@
     $("countyTable").innerHTML = h;
   }
 
-  function renderGlance() {
-    var rs = D.races.filter(function (r) { return r.s === "statewide" || r.s === "house" || r.s === "question"; });
-    var h = "<table><thead><tr><th scope=col>Race</th>" + (D.posted ? "<th scope=col>Leader</th><th scope=col class=num>Share</th><th scope=col class=num>Votes</th><th scope=col>Reporting</th>" : "<th scope=col>On the ballot</th>") + "</tr></thead><tbody>";
-    rs.forEach(function (r) {
-      h += "<tr><td><a href='#statewide' data-jump='" + r.k + "'>" + esc(r.l) + "</a></td>";
-      if (!D.posted) h += "<td>" + esc(r.c.filter(function (c) { return c[0] !== "None of These Candidates"; }).map(function (c) { return person(c[0]) + (c[1] ? " (" + partyName(c[1]) + ")" : ""); }).join(", ")) + "</td>";
-      else {
-        var L = hasVotes(r) ? leadOf(r.c.map(function (c) { return c[2]; })) : null;
-        h += "<td>" + (L ? (L.tie ? "Tied" : esc(person(r.c[L.i][0]))) : "—") + "</td><td class=num>" + (L && !L.tie ? pct(r.c[L.i][2], r.t) : "—") + "</td><td class=num>" + num(r.t) + "</td><td>" + r.rc + "/" + r.ex + " counties</td>";
-      }
-      h += "</tr>";
-    });
-    $("glanceTable").innerHTML = h + "</tbody></table>";
-  }
-
 
   // ---------- map context layers (context.json: Washoe County GIS roads/water, OSM place names) ----------
   // label priority when labels collide (lower wins): ward labels 0 > neighborhoods 1 > freeways 2 > streets 3 > precinct numbers 4
@@ -409,18 +394,17 @@
   }
 
   function renderAll() {
-    renderStatus(); renderBanner(); renderTabs(); renderRace(); renderGlance(); renderReno(); renderPrecincts(); renderLocal(); renderTurnout();
+    renderStatus(); renderBanner(); renderTabs(); renderRace(); renderReno(); renderPrecincts(); renderLocal(); renderTurnout();
     $("washoeStatus").textContent = D.washoe || "—";
   }
 
   // ---------- events ----------
   document.addEventListener("click", function (e) {
-    var t = e.target.closest ? e.target.closest("[data-g],[data-r],[data-c],[data-jump]") : null;
+    var t = e.target.closest ? e.target.closest("[data-g],[data-r],[data-c]") : null;
     if (!t || !D) return;
     if (t.dataset.g) { ui.group = t.dataset.g; ui.race = null; renderTabs(); renderRace(); }
     else if (t.dataset.r) { ui.race = t.dataset.r; renderTabs(); renderRace(); }
     else if (t.dataset.c) { ui.county = t.dataset.c; renderRace(); }
-    else if (t.dataset.jump) { var r = D.races.filter(function (x) { return x.k === t.dataset.jump; })[0]; if (r) { ui.group = r.s; ui.race = r.k; renderTabs(); renderRace(); } }
     if (t.dataset.c || t.dataset.r || t.dataset.g) { var b = document.querySelector("[data-" + (t.dataset.g ? "g='" + t.dataset.g : t.dataset.r ? "r='" + t.dataset.r : "c='" + t.dataset.c) + "']"); if (b && b.focus && !t.dataset.c) b.focus(); }
   });
 
@@ -446,7 +430,7 @@
   }
   // context layers load after the results maps and are drawn in when they arrive (optional; maps work without them)
   setTimeout(function () {
-    fetch("context.json?v=labelfix1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
+    fetch("context.json?v=ballots1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
       CTX = c; if (GEO && D) renderReno(); if (GEO) renderPrecincts();
     }).catch(function () {});
   }, 300);

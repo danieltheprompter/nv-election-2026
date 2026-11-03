@@ -7,7 +7,9 @@ data/results.json on origin/main, ignoring the "u" fetch timestamp. Commits + pu
 AND the SOS release sequence is not older than the published one (so a lagging fetcher can never roll the site
 back). Each cycle it also runs scripts/reno_precincts.py, which publishes data/reno_precincts.json (Reno mayor
 by precinct) only from a Washoe Registrar Statement of Votes Cast that parses and passes its checks; otherwise
-"awaiting". Valid precinct data is never replaced by "awaiting" or an older file. Stops doing work after 2026-11-13 23:59 PT. Only numbers present in the SOS feed are ever written.
+"awaiting". Valid precinct data is never replaced by "awaiting" or an older file. Every --ballots-every cycles
+(after the results publish, with its own timeout) it runs scripts/ballots.py, which reads the SOS VIVID ballots-received
+files, and publishes data/ballots.json (ballots.html) when its content changes and is not older than the published copy. Stops doing work after 2026-11-13 23:59 PT. Only numbers present in the SOS feed are ever written.
 """
 import argparse, datetime as dt, json, os, shutil, subprocess, sys, time
 from zoneinfo import ZoneInfo
@@ -16,6 +18,7 @@ PT = ZoneInfo("America/Los_Angeles")
 STOP_AT = dt.datetime(2026, 11, 13, 23, 59, 59, tzinfo=PT)
 DATA_PATH = "data/results.json"
 P_PATH = "data/reno_precincts.json"
+B_PATH = "data/ballots.json"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import reno_precincts  # noqa: E402
 
@@ -102,6 +105,41 @@ def try_publish_precincts(work, branch):
         request_pages_build()
 
 
+def try_publish_ballots(work, branch, here, timeout):
+    out = os.path.join(work, "ballots.json")
+    if os.path.exists(out):
+        os.remove(out)
+    try:
+        r = subprocess.run([sys.executable, os.path.join(here, "ballots.py"), "--out", out,
+                            "--reg", os.path.join(here, "..", "data", "registration.json")],
+                           capture_output=True, text=True, timeout=timeout)
+        rc, msg = r.returncode, (r.stdout + r.stderr).strip()
+    except subprocess.TimeoutExpired:
+        rc, msg = 124, "ballots fetch timed out"
+    log(f"ballots fetch rc={rc}: {' | '.join(msg.splitlines()[-2:])[-400:]}")
+    if rc != 0 or not os.path.exists(out):
+        return
+    txt = open(out).read(); new = json.loads(txt)
+    git("fetch", "-q", "origin", branch, check=True)
+    git("reset", "-q", "--hard", f"origin/{branch}", check=True)
+    try:
+        pub = json.load(open(B_PATH))
+    except Exception:
+        pub = None
+    if pub is not None and norm(new) == norm(pub):
+        return
+    if pub is not None and (new["mail"].get("gen") or "") < (pub.get("mail", {}).get("gen") or ""):
+        log("ballots: fetched VIVID file is older than published; not rolling back"); return
+    open(B_PATH, "w").write(txt)
+    msg = f"Data: ballots received (VIVID mail as of {new['mail']['asof']}) [actions]"
+    git("add", B_PATH, check=True)
+    git("commit", "-q", "-m", msg, check=True)
+    rc, o = git("push", "-q", "origin", f"HEAD:{branch}")
+    log(("pushed: " if rc == 0 else f"push FAILED (will retry next ballots cycle): {o[-300:]} :: ") + msg)
+    if rc == 0:
+        request_pages_build()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--iterations", type=int, default=26)
@@ -109,6 +147,8 @@ def main():
     ap.add_argument("--branch", default="main")
     ap.add_argument("--work", default=os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "nvwork"))
     ap.add_argument("--fetch-timeout", type=int, default=300)
+    ap.add_argument("--ballots-every", type=int, default=8, help="run the ballots fetch every N cycles (0 = never)")
+    ap.add_argument("--ballots-timeout", type=int, default=150)
     a = ap.parse_args()
     here = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(os.path.join(a.work, "data", "archive"), exist_ok=True)
@@ -139,6 +179,11 @@ def main():
             try_publish_precincts(a.work, a.branch)
         except Exception as e:
             log(f"precinct publish error: {e!r}")
+        if a.ballots_every and i % a.ballots_every == 0:
+            try:
+                try_publish_ballots(a.work, a.branch, here, a.ballots_timeout)
+            except Exception as e:
+                log(f"ballots publish error: {e!r}")
         if i < a.iterations - 1:
             time.sleep(max(5, a.interval - (time.time() - start)))
     if fails and fails == a.iterations:

@@ -108,3 +108,34 @@ tr.lead td{font-weight:700}
 .ctxl.rlab.fw{fill:var(--fw);font-weight:700;filter:brightness(.8)}
 .ctxl.pnum{fill:var(--ink);fill-opacity:.75;font-variant-numeric:tabular-nums;stroke-width:1.8px;stroke-opacity:.7}
 @media (prefers-color-scheme:dark){.ctxl.rlab.fw{filter:none}}
+
+/* page switcher (Results | Ballots received) */
+.pages{display:flex;gap:6px;margin:4px 0 6px;flex-wrap:wrap}
+.pages a{display:inline-flex;align-items:center;min-height:40px;padding:6px 16px;border:2px solid var(--acc);border-radius:999px;font-weight:600;text-decoration:none;color:var(--acc);background:var(--card)}
+.pages a[aria-current=page]{background:var(--acc);color:var(--acc-ink)}
+/* ballots page */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0 0 18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat .k{display:block;font-size:.88rem;color:var(--mut);font-weight:600}
+.stat .v{display:block;font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25;margin:2px 0}
+.stat .x{display:block;font-size:.88rem;color:var(--mut)}
+.stat.main{border-left:6px solid var(--acc)}
+.kv{width:100%}.kv td{padding:8px 6px}.kv td.num{font-weight:600}
+.kv .sub td{color:var(--mut);font-size:.92rem;font-weight:400}
+.pbar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:4px 0 14px;background:var(--nores)}
+.pbar>i{display:block;height:100%}
+.pbrow{margin:0 0 4px;font-size:.92rem}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+th.sortable[aria-sort=ascending] button::after{content:" \25B2"}th.sortable[aria-sort=descending] button::after{content:" \25BC"}
+td button.cty{font:inherit;color:var(--acc);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-align:left}
+tr.sel td{background:color-mix(in srgb,var(--acc) 12%,transparent)}
+tfoot td{font-weight:700;border-top:2px solid var(--line)}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:.9rem;font-variant-numeric:tabular-nums}
+.days .lab{white-space:nowrap;color:var(--mut)}.days .tot{text-align:right}
+.days .pbar{margin:0;height:16px}
+.days .ed{font-weight:700;color:var(--ink)}
+.bgrid>*{min-width:0}
+.kv td:last-child{white-space:normal}
+td button.cty{white-space:nowrap}
+#countyTable th{white-space:normal;vertical-align:bottom}

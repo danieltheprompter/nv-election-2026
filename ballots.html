@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nevada 2026 — Ballots received by party and county (unofficial)</title>
+<meta name="description" content="Unofficial, independent view of how many Nevada ballots have been received for the Nov 3, 2026 general election, by party, county and voting method, copied from the Nevada Secretary of State's VIVID dashboard. Updates automatically.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="style.css?v=ballots1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%231f5fa8%22/%3E%3C/svg%3E">
+</head>
+<body>
+<a class="skip" href="#summary">Skip to ballot numbers</a>
+<header class="top">
+  <div class="wrap">
+    <h1>Nevada 2026 Ballots Received <span class="h1sub">— updates automatically</span></h1>
+    <p class="disclaimer"><strong>Unofficial tracker — not an official government website.</strong> Numbers are copied automatically from the
+      Nevada Secretary of State's <a href="https://www.nvsos.gov/vivid/" rel="noopener">VIVID ballot &amp; turnout dashboard</a>, which itself says its data is unofficial and subject to change.</p>
+    <p id="status" class="status" role="status" aria-live="polite">Loading ballot numbers…</p>
+    <nav class="pages" aria-label="Site pages"><a href="./">Results</a><a href="ballots.html" aria-current="page">Ballots received</a></nav>
+    <nav class="toc" aria-label="Jump to section">
+      <a href="#summary">Statewide</a><a href="#party">By party</a><a href="#county">By county</a><a href="#daily">By day</a><a href="#bsources">Sources</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <details class="howto">
+    <summary>How to read this page</summary>
+    <ul>
+      <li>Nevada mails a ballot to every active registered voter. Voters can mail it back or drop it off, vote in person during early voting (Oct 17–30), or vote in person on Election Day (Nov 3).</li>
+      <li><strong>Mail ballots returned</strong> counts mail ballots counties have received back. <strong>In person</strong> counts people who checked in to vote at a polling place. When someone votes in person, their mail ballot is canceled, so the same voter is not counted twice.</li>
+      <li><strong>Party</strong> is the voter's party registration, not how they voted. “Other” is everyone not registered as a Democrat or Republican (nonpartisan, Independent American, Libertarian and smaller parties), grouped the same way the Secretary of State does.</li>
+      <li><strong>% of registered</strong> compares ballots received with the Secretary of State's count of active registered voters (Nov 1, 2026 report).</li>
+      <li>Mail ballots postmarked by Nov 3 count if they arrive by Nov 7, so the mail numbers keep growing after Election Day. This page never estimates or projects anything. All times are Pacific Time (PT).</li>
+    </ul>
+  </details>
+
+  <section id="summary" aria-labelledby="h-summary">
+    <h2 id="h-summary">Statewide</h2>
+    <div id="sumCards" class="stats"></div>
+    <div class="grid2 bgrid">
+      <div class="card" id="mailCard"></div>
+      <div class="card" id="inpCard"></div>
+    </div>
+  </section>
+
+  <section id="party" aria-labelledby="h-party">
+    <h2 id="h-party">By party registration</h2>
+    <div class="card">
+      <div id="partyBars"></div>
+      <div class="scroll" id="partyTable" tabindex="0"></div>
+    </div>
+  </section>
+
+  <section id="county" aria-labelledby="h-county">
+    <h2 id="h-county">By county</h2>
+    <div class="card">
+      <div class="grid2 bgrid">
+        <div class="mapcard">
+          <h4>Share of active registered voters whose ballot has been received</h4>
+          <div id="legend" class="legend" aria-label="Map legend"></div>
+          <div id="map"></div>
+          <p class="note" id="mapNote"></p>
+        </div>
+        <div id="countyDetail"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>All 17 counties</h3>
+      <p class="meta">Tap a column heading to sort. Tap a county name to see it on the map.</p>
+      <div class="scroll" id="countyTable" tabindex="0"></div>
+    </div>
+  </section>
+
+  <section id="daily" aria-labelledby="h-daily">
+    <h2 id="h-daily">In-person voting by day</h2>
+    <div class="card">
+      <div id="dailyChart"></div>
+      <details><summary>Day-by-day table</summary><div class="scroll" id="dailyTable" tabindex="0"></div></details>
+      <p class="note">The Secretary of State publishes in-person check-ins by day. It does not publish mail ballot returns by day, so this page shows only the latest mail totals.</p>
+    </div>
+  </section>
+
+  <section id="bsources" aria-labelledby="h-bsources">
+    <h2 id="h-bsources">Sources and notes</h2>
+    <div class="card">
+      <ul id="srcList"><li>Loading…</li></ul>
+      <p class="note">Data is checked about every 15 minutes and this page re-checks every 5 minutes. Counties update the dashboard on their own schedules, so the totals can move in steps.</p>
+    </div>
+  </section>
+</main>
+<footer class="wrap foot">Unofficial tracker built for personal use; not affiliated with the State of Nevada or Washoe County. <a href="https://github.com/danieltheprompter/nv-election-2026">Source on GitHub</a>.</footer>
+<script src="zoom.js?v=ballots1"></script>
+<script src="ballots.js?v=ballots1"></script>
+</body>
+</html>
