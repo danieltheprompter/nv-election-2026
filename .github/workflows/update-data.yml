@@ -1,0 +1,54 @@
+name: Update election data
+
+# Fetches the NV SOS results feed and commits data/results.json only when its content changes.
+# Each run loops ~52 min (a fetch every ~2 min); cron starts the next run and the concurrency group
+# keeps at most one running + one queued, so coverage is continuous even when cron is delayed.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Fetch cycles in this run (2 min apart)"
+        default: "26"
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - name: Stop after Nov 13, 2026 11:59 PM PT
+        id: gate
+        run: |
+          if [ "$(date -u +%s)" -gt "$(date -u -d '2026-11-14T07:59:59Z' +%s)" ]; then
+            echo "Past the tracking window; nothing to do."; echo "run=false" >> "$GITHUB_OUTPUT"
+          else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+      - name: Install Playwright (uses the runner's preinstalled /usr/bin/google-chrome)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          pip install -r scripts/requirements.txt
+          google-chrome --version
+      - name: Fetch and publish loop
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python scripts/publish_loop.py --iterations "${{ github.event.inputs.iterations || '26' }}"
