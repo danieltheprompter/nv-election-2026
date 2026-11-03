@@ -2,10 +2,12 @@
    Renders only what the data file (a mirror of the NV SOS feed) contains; never estimates. */
 (function () {
   "use strict";
-  // Data sources, tried in order. The first is the fastest-updating copy (see README in repo).
+  // Data sources, tried in order. Measured 2026-11-03: the GitHub Pages copy is live ~30-90 s after a push
+  // (each Pages deploy purges its CDN); raw.githubusercontent.com ignores query strings and lagged ~3-5 min,
+  // so it is only a fallback.
   var DATA_URLS = (window.NV_DATA_URLS || [
-    "https://raw.githubusercontent.com/danieltheprompter/nv-election-2026/data/results.json",
-    "data/results.json"
+    "data/results.json",
+    "https://raw.githubusercontent.com/danieltheprompter/nv-election-2026/data/results.json"
   ]);
   var POLL_MS = 60000;
   var PT = "America/Los_Angeles";
