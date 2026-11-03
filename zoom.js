@@ -45,12 +45,30 @@
     function panBy(dx, dy) { s.tx += dx; s.ty += dy; apply(); }
     s.reset = function () { s.s = 1; s.tx = 0; s.ty = 0; apply(); };
     // hide context labels that would overlap a higher-priority label (ward labels > neighborhoods > freeways > streets > precinct numbers);
-    // neighborhood labels (data-nudge) first try moving one line up or down before giving way
+    // a neighborhood label (data-nudge) may first try a small shift up or down, but only as far as its own area allows
+    // (data-nu / data-nd, map units) and never onto or across the Truckee River; a name that touches the river line is hidden
     function overlaps(r, kept) {
       var pad = 1.5;
       for (var j = 0; j < kept.length; j++) {
         var q = kept[j]; if (r.left - pad < q.right && r.right + pad > q.left && r.top - pad < q.bottom && r.bottom + pad > q.top) return true;
       }
+      return false;
+    }
+    function segHits(s, x0, y0, x1, y1) {
+      var t0 = 0, t1 = 1, dx = s[2] - s[0], dy = s[3] - s[1];
+      var pq = [[-dx, s[0] - x0], [dx, x1 - s[0]], [-dy, s[1] - y0], [dy, y1 - s[1]]];
+      for (var i = 0; i < 4; i++) {
+        var p = pq[i][0], q = pq[i][1];
+        if (p === 0) { if (q < 0) return false; }
+        else { var t = q / p; if (p < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t); if (t0 > t1) return false; }
+      }
+      return true;
+    }
+    // does the river line cross the text box (map units, letters only: the box is trimmed to the cap height) at y offset dy?
+    function onRiver(b, dy0, dy1) {
+      var R = window.NV_RIVER; if (!R) return false;
+      var trim = b.height * 0.18, x0 = b.x, x1 = b.x + b.width, y0 = b.y + trim + Math.min(dy0, dy1), y1 = b.y + b.height - trim + Math.max(dy0, dy1);
+      for (var i = 0; i < R.length; i++) if (segHits(R[i], x0, y0, x1, y1)) return true;
       return false;
     }
     function declutter(g) {
@@ -64,15 +82,24 @@
       var rects = items.map(function (it) { return it[1].getBoundingClientRect(); }), kept = [];
       items.forEach(function (it, i) {
         var r = rects[i], t = it[1];
-        if (it[0] > 0 && overlaps(r, kept)) {
-          var ok = false;
-          if (t.dataset.nudge) ["-1.15em", "1.15em", "-2.1em", "2.1em"].some(function (dy) {
-            t.setAttribute("dy", dy); var r2 = t.getBoundingClientRect();
-            if (!overlaps(r2, kept)) { r = r2; ok = true; return true; }
-            return false;
-          });
-          if (!ok) { t.removeAttribute("dy"); t.style.display = "none"; return; }
-        }
+        if (t.dataset.nudge) {
+          var b, fs = parseFloat(t.style.fontSize) || 8;
+          try { b = t.getBBox(); } catch (e) { b = null; }
+          if (!b || !b.width) { kept.push(r); return; }
+          if (onRiver(b, 0, 0)) { t.style.display = "none"; return; }
+          if (overlaps(r, kept)) {
+            var ok = false;
+            [-0.6, 0.6, -1.15, 1.15].some(function (em) {
+              var d = em * fs, room = em < 0 ? +t.dataset.nu : +t.dataset.nd;
+              if (Math.abs(d) + 0.3 * fs > room) return false;
+              if (onRiver(b, 0, d)) return false;
+              t.setAttribute("dy", em + "em"); var r2 = t.getBoundingClientRect();
+              if (!overlaps(r2, kept)) { r = r2; ok = true; return true; }
+              return false;
+            });
+            if (!ok) { t.removeAttribute("dy"); t.style.display = "none"; return; }
+          }
+        } else if (it[0] > 0 && overlaps(r, kept)) { t.style.display = "none"; return; }
         kept.push(r);
       });
     }

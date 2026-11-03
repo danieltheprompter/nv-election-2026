@@ -258,6 +258,14 @@
   }
   function ctxLayers(kind, hasResults) {
     if (!CTX) return { under: "", labels: "" };
+    if (!window.NV_RIVER) {
+      var segs = [];
+      (CTX.river || "").split("M").forEach(function (sub) {
+        var p = sub.split("L").map(function (q) { return q.split(",").map(Number); }).filter(function (q) { return q.length === 2 && !isNaN(q[0]) && !isNaN(q[1]); });
+        for (var i = 1; i < p.length; i++) segs.push([p[i - 1][0], p[i - 1][1], p[i][0], p[i][1]]);
+      });
+      window.NV_RIVER = segs;
+    }
     var u = "<g class=ctx pointer-events=none aria-hidden=true>";
     if (CTX.water) u += "<path class=cwater d='" + CTX.water + "'></path>";
     u += "<path class=criver d='" + CTX.river + "' fill='none'></path>";
@@ -273,11 +281,11 @@
       var fw = q.c === "fw";
       l += ctxText("rlab " + q.c, fw ? 2 : 3, q.t, q.x, q.y, fw ? 8 : 7.5, (fw ? q.z : q.z + 1) + lift, " transform='rotate(" + q.a + " " + q.x + " " + q.y + ")'");
     });
-    // neighborhoods: grow a little with zoom (data-zs) and may shift up/down a line to dodge a ward label (data-nudge)
-    // (x is pulled in just enough that a name near the map edge isn't cut off: ~0.72em per uppercase, letter-spaced character)
+    // neighborhoods: anchored inside their own area (checked against Washoe plats / Census boundaries at build time);
+    // they grow a little with zoom (data-zs) and, to dodge a ward label, may shift up/down only as far as their area
+    // allows (data-nu / data-nd, map units) and never onto or across the Truckee (zoom.js checks the river line)
     CTX.pl.forEach(function (q) {
-      var hw = q.t.length * 8.2 * 0.36, x = Math.min(Math.max(q.x, -2 + hw), 302 - hw);
-      l += ctxText("plab", 1, q.t, +x.toFixed(1), q.y, 8.2, Math.max(q.z, 1 + lift), " data-zs='0.22' data-nudge='1'");
+      l += ctxText("plab", 1, q.t, q.x, q.y, 8.2, Math.max(q.z, 1 + lift), " data-zs='0.22' data-nudge='1' data-nu='" + (q.nu || 0) + "' data-nd='" + (q.nd || 0) + "'");
     });
     return { under: u, labels: l + "</g>" };
   }
@@ -438,7 +446,7 @@
   }
   // context layers load after the results maps and are drawn in when they arrive (optional; maps work without them)
   setTimeout(function () {
-    fetch("context.json?v=declutter1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
+    fetch("context.json?v=labelfix1").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (c) {
       CTX = c; if (GEO && D) renderReno(); if (GEO) renderPrecincts();
     }).catch(function () {});
   }, 300);
