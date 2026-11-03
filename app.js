@@ -62,8 +62,9 @@
     var col = colors(r), votes = hasVotes(r);
     var idx = r.c.map(function (_, i) { return i; });
     if (votes) idx.sort(function (a, b) { return (r.c[b][2] || 0) - (r.c[a][2] || 0); });
+    var showParty = r.c.some(function (c) { return c[1]; });
     var lead = votes ? leadOf(r.c.map(function (c) { return c[2]; })) : null;
-    var h = "<table><thead><tr><th>" + (r.s === "question" || /Question/.test(r.l) ? "Choice" : "Candidate") + "</th><th>Party</th>";
+    var h = "<table><thead><tr><th>" + (r.s === "question" || /Question/.test(r.l) ? "Choice" : "Candidate") + "</th>" + (showParty ? "<th>Party</th>" : "");
     if (votes) h += "<th class=num>Votes</th><th class=num>Share</th>";
     h += "</tr></thead><tbody>";
     idx.forEach(function (i, rank) {
@@ -71,12 +72,12 @@
       var isLead = lead && !lead.tie && i === lead.i && r.vf === 1;
       h += "<tr" + (isLead ? " class=lead" : "") + "><td><span class=sw style='background:" + col[i] + "'></span>" + esc(person(c[0]));
       if (votes) h += "<div class=bar><i style='width:" + (r.t ? (100 * (c[2] || 0) / r.t) : 0).toFixed(2) + "%;background:" + col[i] + "'></i></div>";
-      h += "</td><td>" + esc(c[1] || "") + "</td>";
+      h += "</td>" + (showParty ? "<td>" + esc(c[1] || "") + "</td>" : "");
       if (votes) h += "<td class=num>" + num(c[2]) + "</td><td class=num>" + pct(c[2], r.t) + "</td>";
       h += "</tr>";
     });
     h += "</tbody>";
-    if (votes) h += "<tfoot><tr><td colspan=2>Total votes</td><td class=num>" + num(r.t) + "</td><td></td></tr></tfoot>";
+    if (votes) h += "<tfoot><tr><td colspan=" + (showParty ? 2 : 1) + ">Total votes</td><td class=num>" + num(r.t) + "</td><td></td></tr></tfoot>";
     h += "</table>";
     var meta = votes ? reportingText(r) + (lead && lead.tie ? " · tied" : "")
       : (D.posted ? "No votes reported in this race yet · " + reportingText(r) : "Awaiting results");
