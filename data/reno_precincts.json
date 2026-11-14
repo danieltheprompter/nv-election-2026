@@ -1,1 +1,1 @@
-{"status":"awaiting","note":"The Washoe County Registrar has not posted a precinct-level Statement of Votes Cast for this election yet.","src":"https://www.washoecounty.gov/voters/results/2026data.php"}
+{"status":"awaiting","note":"A Statement of Votes Cast file was posted but could not be read with confidence, so no precinct results are shown. (StatementOfVotesCastRPTExcel.xlsx: Sheet52: unexpected row label 'Prov-Election Day')","src":"https://www.washoecounty.gov/voters/results/2026data.php","u":"5:29 PM PT, Nov 13"}
